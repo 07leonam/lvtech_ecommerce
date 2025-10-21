@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - LVTech</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700<link rel="stylesheet" href="styles.css">family=Open+Sans:wght@400;600<link rel="stylesheet" href="styles.css">display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>LVTech - Admin</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Início</a></li>
+                    <li><a href="carrinho.html">Carrinho (<span id="cart-count">0</span>)</a></li>
+                    <li><a href="admin.html">Admin</a></li>
+                    <li><a href="#" id="logout-btn">Sair</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Login Section (exibido se não estiver autenticado) -->
+    <section id="login-section" class="admin-login">
+        <div class="container">
+            <h2>Login de Administrador</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="login-email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="senha">Senha</label>
+                    <input type="password" id="login-senha" name="senha" required>
+                </div>
+                <button type="submit" class="btn-primary">Entrar</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Admin Dashboard (exibido após autenticação) -->
+    <section id="admin-dashboard" class="admin-dashboard" style="display: none;">
+        <div class="container">
+            <h2>Painel de Administração</h2>
+            
+            <!-- Gerenciar Produtos -->
+            <div class="admin-section">
+                <h3>Gerenciar Produtos</h3>
+                <form id="product-form">
+                    <input type="hidden" id="product-id">
+                    <div class="form-group">
+                        <label for="product-nome">Nome</label>
+                        <input type="text" id="product-nome" name="nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-descricao">Descrição</label>
+                        <textarea id="product-descricao" name="descricao" rows="3" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-preco">Preço</label>
+                        <input type="number" id="product-preco" name="preco" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-estoque">Estoque</label>
+                        <input type="number" id="product-estoque" name="estoque" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-imagem">Imagem</label>
+                        <input type="file" id="product-imagem" name="imagem">
+                    </div>
+                    <button type="submit" class="btn-primary">Salvar Produto</button>
+                    <button type="button" id="clear-form-btn" class="btn-secondary">Limpar</button>
+                </form>
+
+                <h4>Lista de Produtos</h4>
+                <div id="admin-products-list">
+                    <!-- Os produtos serão carregados dinamicamente aqui -->
+                </div>
+            </div>
+
+            <!-- Relatórios -->
+            <div class="admin-section">
+                <h3>Relatórios</h3>
+                <button id="relatorio-vendas-btn" class="btn-secondary">Vendas por Produto</button>
+                <button id="relatorio-pedidos-btn" class="btn-secondary">Total de Pedidos</button>
+                <div id="relatorio-resultado">
+                    <!-- Os resultados dos relatórios serão exibidos aqui -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 LVTech. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="admin.js"></script>
+</body>
+</html>
