@@ -4,9 +4,7 @@ const API_URL = 'http://localhost:3000/api';
 // Carregar itens do carrinho
 async function loadCart() {
     try {
-        const response = await fetch(`${API_URL}/carrinho`, {
-            credentials: 'include'
-        });
+        const response = await fetch(`${API_URL}/carrinho`, { credentials: 'include' });
         const cart = await response.json();
         
         const cartItems = document.getElementById('cart-items');
@@ -24,10 +22,13 @@ async function loadCart() {
             const itemTotal = item.preco_unitario * item.quantidade;
             total += itemTotal;
             
+            // Pegar apenas a primeira imagem
+            const firstImage = item.imagens && item.imagens.length > 0 ? item.imagens[0] : null;
+
             const cartItem = document.createElement('div');
             cartItem.className = 'cart-item';
             cartItem.innerHTML = `
-                <img src="${API_URL.replace('/api', '')}/uploads/${item.imagem}" alt="${item.nome}" onerror="this.src='https://via.placeholder.com/100'">
+                <img src="${API_URL.replace('/api', '')}/uploads/${firstImage || 'placeholder.png'}" alt="${item.nome}" onerror="this.src='https://via.placeholder.com/100'">
                 <div class="cart-item-info">
                     <h3>${item.nome}</h3>
                     <p>Preço unitário: R$ ${parseFloat(item.preco_unitario).toFixed(2)}</p>
@@ -61,14 +62,9 @@ async function updateCartItem(productId) {
     try {
         const response = await fetch(`${API_URL}/carrinho/atualizar`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({
-                produto_id: productId,
-                quantidade: quantity
-            })
+            body: JSON.stringify({ produto_id: productId, quantidade })
         });
         
         if (response.ok) {
@@ -104,11 +100,8 @@ async function removeCartItem(productId) {
 // Atualizar contador do carrinho
 async function updateCartCount() {
     try {
-        const response = await fetch(`${API_URL}/carrinho`, {
-            credentials: 'include'
-        });
+        const response = await fetch(`${API_URL}/carrinho`, { credentials: 'include' });
         const cart = await response.json();
-        
         const cartCount = cart.reduce((total, item) => total + item.quantidade, 0);
         document.getElementById('cart-count').textContent = cartCount;
     } catch (error) {

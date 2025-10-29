@@ -824,3 +824,119 @@ footer {
     }
 }
 
+
+
+/* Estilos para a Galeria de Imagens */
+.product-image {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#main-product-image {
+    width: 100%;
+    max-height: 500px;
+    object-fit: contain;
+    border-radius: 8px;
+    background-color: #f0f0f0;
+    margin-bottom: 15px;
+}
+
+.thumbnail-gallery {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    overflow-x: auto;
+    padding: 10px 0;
+}
+
+.thumbnail-gallery img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.3s;
+}
+
+.thumbnail-gallery img.selected {
+    border-color: var(--color-accent);
+}
+
+/* Estilos para seleção de Cor e Armazenamento */
+.options-group {
+    margin-bottom: 25px;
+}
+
+.options-group h3 {
+    font-family: var(--font-family-primary);
+    font-size: 20px;
+    margin-bottom: 10px;
+    color: var(--color-primary);
+}
+
+.color-picker, .storage-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.color-btn, .storage-btn {
+    padding: 10px 20px;
+    border: 2px solid var(--color-primary);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    background-color: var(--color-secondary);
+}
+
+.color-btn.selected, .storage-btn.selected {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.5); /* Sombra de destaque */
+    transform: scale(1.05);
+}
+
+.color-btn {
+    min-width: 100px;
+    text-align: center;
+    /* Para cores, a cor de fundo será definida via JS */
+}
+
+/* Responsividade para a galeria */
+@media (max-width: 992px) {
+    .thumbnail-gallery img {
+        width: 60px;
+        height: 60px;
+    }
+}
+
+@media (max-width: 768px) {
+    .product-detail-grid {
+        grid-template-columns: 1fr;
+    }
+    .product-image {
+        order: 1; /* Imagem primeiro no mobile */
+    }
+    .product-info {
+        order: 2;
+    }
+    .thumbnail-gallery {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 480px) {
+    .thumbnail-gallery img {
+        width: 50px;
+        height: 50px;
+    }
+    .color-btn, .storage-btn {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+}
+

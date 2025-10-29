@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LVTech - [MODELO_NOME]</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>LVTech</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Início</a></li>
+                    <li><a href="carrinho.html">Carrinho (<span id="cart-count">0</span>)</a></li>
+                    <li><a href="admin.html">Admin</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Product Detail Section -->
+    <section class="product-detail">
+        <div class="container">
+            <div class="product-detail-grid">
+                <div class="product-image">
+                    <img id="main-product-image" src="https://via.placeholder.com/400x500/0A0A0A/B8860B?text=[MODELO_NOME]" alt="[MODELO_NOME]">
+                    <div id="thumbnail-gallery" class="thumbnail-gallery">
+                        <!-- Miniaturas de imagem serão carregadas aqui -->
+                    </div>
+                </div>
+                <div class="product-info">
+                    <h2 id="model-name-title">[MODELO_NOME]</h2>
+                    <p id="model-description">O [MODELO_NOME] é a escolha perfeita para quem busca performance e elegância. Selecione as opções abaixo para configurar o seu.</p>
+                    
+                    <div class="options-group">
+                        <h3>Cor:</h3>
+                        <div id="color-options" class="color-picker">
+                            <!-- Opções de cor serão inseridas aqui -->
+                        </div>
+                    </div>
+
+                    <div class="options-group">
+                        <h3>Armazenamento:</h3>
+                        <div id="storage-options" class="storage-picker">
+                            <!-- Opções de armazenamento serão inseridas aqui -->
+                        </div>
+                    </div>
+
+                    <p class="product-price">Preço: <span id="product-price">R$ 0,00</span></p>
+                    <p class="product-stock">Estoque: <span id="product-stock">0</span> unidades</p>
+                    <p id="product-id-hidden" style="display: none;"></p>
+
+                    <div class="add-to-cart-section">
+                        <label for="quantity">Quantidade:</label>
+                        <input type="number" id="quantity" value="1" min="1">
+                        <button id="add-to-cart-btn" class="btn-primary" disabled>Adicionar ao Carrinho</button>
+                    </div>
+                    <a href="index.html" class="btn-secondary">Voltar aos Modelos</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 LVTech. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script src="model_logic.js"></script>
+</body>
+</html>
