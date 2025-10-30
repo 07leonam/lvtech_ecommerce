@@ -8,6 +8,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const config = require("./config");
+const { MercadoPagoConfig, Preference } = require("mercadopago");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -147,20 +148,33 @@ app.delete("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, async (
 // Nova Rota: Listar imagens de um produto/modelo
 app.get("/api/produtos/:modelo/imagens", async (req, res) => {
   const { modelo } = req.params; // Ex: "iphone 15 branco"
-  const dirPath = path.join(__dirname, "uploads", modelo);
+  // Decodifica o nome do modelo para lidar com espaços e caracteres especiais na URL
+  const decodedModelo = decodeURIComponent(modelo);
   
   try {
-    if (fs.existsSync(dirPath)) {
-      const files = await fs.promises.readdir(dirPath);
-      // Filtra apenas arquivos de imagem (ex: .jpg, .jpeg, .png, .webp) e ordena
-      const imageFiles = files
-        .filter(file => /\.(jpe?g|png|webp)$/i.test(file))
-        .sort(); 
-      
-      res.json(imageFiles.map(file => `${modelo}/${file}`));
-    } else {
-      res.status(404).json([]); // Retorna array vazio se a pasta não existir
+    // 1. Encontra o ID de um produto que corresponda ao modelo (cor e modelo, sem armazenamento)
+    // O nome do produto no BD é "iPhone 15 Branco 128GB". O modelo passado é "iphone 15 branco".
+    // Precisamos encontrar todos os produtos que comecem com o nome do modelo (ex: 'iPhone 15 Branco%')
+    const [produtos] = await pool.execute(
+      "SELECT id FROM produtos WHERE nome LIKE ?", 
+      [`%${decodedModelo.replace(/\s/g, '%')}%`] // Ex: %iphone%15%branco%
+    );
+
+    if (produtos.length === 0) {
+        return res.json([]); // Retorna array vazio se não encontrar produtos para o modelo
     }
+    
+    // 2. Busca as imagens para o primeiro produto encontrado (assumindo que as imagens são as mesmas para todas as variações de armazenamento da mesma cor)
+    const produtoId = produtos[0].id;
+
+    const [imagens] = await pool.execute(
+      "SELECT caminho FROM produto_imagens WHERE produto_id = ? ORDER BY ordem ASC",
+      [produtoId]
+    );
+    
+    // Retorna apenas o caminho da imagem
+    res.json(imagens.map(img => img.caminho));
+    
   } catch (error) {
     console.error("Erro ao listar imagens:", error);
     res.status(500).send("Erro no servidor.");
@@ -215,6 +229,125 @@ app.get("/api/produtos/:id", async (req, res) => {
 });
 
 // ----------------------- ROTAS DO CARRINHO -----------------------
+
+// ----------------------- ROTAS DE CHECKOUT (MERCADO PAGO) -----------------------
+
+// Inicialização do Mercado Pago
+const client = new MercadoPagoConfig({ accessToken: config.MP_ACCESS_TOKEN });
+const preference = new Preference(client);
+
+app.post("/api/checkout/preference", async (req, res) => {
+  const { items } = req.body; // Recebe os itens do frontend
+  
+  if (!config.MP_ACCESS_TOKEN || config.MP_ACCESS_TOKEN === "SEU_ACCESS_TOKEN_DO_MERCADO_PAGO_AQUI") {
+      return res.status(500).send("Erro de configuração: Access Token do Mercado Pago ausente no backend.");
+  }
+
+  // Busca os itens reais do carrinho para garantir que os preços não foram adulterados no frontend
+  if (!req.session.cart || req.session.cart.length === 0) return res.status(400).send("Carrinho vazio.");
+
+  try {
+    const productIds = req.session.cart.map(item => item.produto_id);
+    const [products] = await pool.execute(
+      `SELECT id, nome, preco FROM produtos WHERE id IN (${productIds.join(",")})`
+    );
+    
+    // Mapeia os itens do carrinho para o formato do Mercado Pago
+    const mpItems = req.session.cart.map(cartItem => {
+        const product = products.find(p => p.id === cartItem.produto_id);
+        if (!product) throw new Error(`Produto ID ${cartItem.produto_id} não encontrado.`);
+        
+        return {
+            title: product.nome,
+            quantity: cartItem.quantidade,
+            unit_price: parseFloat(product.preco),
+        };
+    });
+
+    const body = {
+      items: mpItems,
+      back_urls: {
+        success: "http://localhost:3000/checkout.html?status=success", // URL de sucesso (ajustar para o domínio real)
+        failure: "http://localhost:3000/checkout.html?status=failure", // URL de falha
+        pending: "http://localhost:3000/checkout.html?status=pending", // URL pendente
+      },
+      auto_return: "approved",
+    };
+
+    const createdPreference = await preference.create({ body });
+    
+    res.json({ preferenceId: createdPreference.id });
+
+  } catch (error) {
+    console.error("Erro ao criar preferência de pagamento:", error);
+    res.status(500).send("Erro ao criar preferência de pagamento.");
+  }
+});
+
+// Rota para finalizar o pedido (após o pagamento)
+app.post("/api/checkout", async (req, res) => {
+    const { nome, email, endereco, forma_pagamento } = req.body;
+    
+    // 1. Verificar se o carrinho está vazio
+    if (!req.session.cart || req.session.cart.length === 0) {
+        return res.status(400).send("Carrinho vazio. Não é possível finalizar o pedido.");
+    }
+    
+    // 2. Simulação de processamento de pagamento (em um cenário real, haveria uma verificação do status do Mercado Pago)
+    let pagamento_status = "Aguardando Pagamento";
+    if (forma_pagamento.startsWith('mp_')) {
+        // Se for Mercado Pago, assumimos que o pagamento será processado pelo Brick/Checkout Pro
+        // Aqui, o frontend deveria ter um mecanismo para verificar o status do pagamento.
+        // Como o foco é a integração, vamos simular que o pagamento está "pendente" ou "aprovado"
+        // dependendo da forma de pagamento.
+        pagamento_status = forma_pagamento === 'mp_cartao' ? "Aprovado (Simulado)" : "Aguardando Pagamento (PIX/Boleto)";
+    } else {
+        pagamento_status = "Aprovado (Outra Forma)";
+    }
+    
+    // 3. Inserir o pedido no banco de dados (simulação)
+    try {
+        const [result] = await pool.execute(
+            "INSERT INTO pedidos (nome_cliente, email_cliente, endereco_entrega, forma_pagamento, status_pagamento, data_pedido) VALUES (?, ?, ?, ?, ?, NOW())",
+            [nome, email, endereco, forma_pagamento, pagamento_status]
+        );
+        const pedidoId = result.insertId;
+        
+        // 4. Inserir os itens do pedido e atualizar o estoque
+        const productIds = req.session.cart.map(item => item.produto_id);
+        const [products] = await pool.execute(
+            `SELECT id, preco, estoque FROM produtos WHERE id IN (${productIds.join(",")})`
+        );
+        
+        for (const cartItem of req.session.cart) {
+            const product = products.find(p => p.id === cartItem.produto_id);
+            if (!product) continue; // Ignora se o produto não for encontrado
+            
+            await pool.execute(
+                "INSERT INTO pedido_itens (pedido_id, produto_id, quantidade, preco_unitario) VALUES (?, ?, ?, ?)",
+                [pedidoId, cartItem.produto_id, cartItem.quantidade, product.preco]
+            );
+            
+            // Atualiza o estoque
+            const novoEstoque = product.estoque - cartItem.quantidade;
+            await pool.execute(
+                "UPDATE produtos SET estoque = ? WHERE id = ?",
+                [novoEstoque, cartItem.produto_id]
+            );
+        }
+        
+        // 5. Limpar o carrinho
+        req.session.cart = [];
+        
+        res.status(200).send("Pedido finalizado com sucesso. Status do Pagamento: " + pagamento_status);
+        
+    } catch (error) {
+        console.error("Erro ao finalizar pedido:", error);
+        res.status(500).send("Erro no servidor ao finalizar o pedido.");
+    }
+});
+
+// ----------------------- ROTAS DO CARRINHO -----------------------
 app.post("/api/carrinho/adicionar", (req, res) => {
   const { produto_id, quantidade } = req.body;
   if (!req.session.cart) req.session.cart = [];
@@ -261,7 +394,7 @@ app.get("/api/carrinho", async (req, res) => {
     );
 
     const [imagens] = await pool.execute(
-      `SELECT * FROM produto_imagens WHERE produto_id IN (${productIds.join(",")}) ORDER BY ordem ASC`
+      `SELECT * FROM produto_imagens WHERE produto_id IN (${productIds.join(",")}) AND ordem = 1`
     );
 
     const cartWithImages = req.session.cart.map(item => {
@@ -271,7 +404,7 @@ app.get("/api/carrinho", async (req, res) => {
         ...item,
         nome: product?.nome || "Produto Desconhecido",
         preco_unitario: product?.preco || 0,
-        imagem: firstImage, // PRIMEIRA imagem
+        imagem: firstImage, // PRIMEIRA imagem (ordem 1)
       };
     });
 

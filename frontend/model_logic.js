@@ -13,6 +13,10 @@ let currentProductId = null;
 let currentProductPrice = 0;
 let currentProductStock = 0;
 
+// Variáveis de estado para o carrossel
+let currentImageIndex = 0;
+let currentImagePaths = [];
+
 // Função auxiliar para formatar preço
 const formatPrice = (price) => {
     return `R$ ${parseFloat(price).toFixed(2).replace('.', ',')}`;
@@ -51,8 +55,9 @@ async function fetchAndGroupProducts() {
                 acc[modelName].colors[color] = {};
             }
 
-            // O nome da pasta de imagem é o nome completo do produto (ex: 'iphone 15 branco')
-            const imageFolderName = product.nome.replace(/\s\d+(GB|TB)/, '').toLowerCase().replace(/\s/g, '_');
+            // O nome da pasta de imagem no disco usa o nome do produto com a cor
+            // Ex: "iphone 15 branco" (sem o armazenamento)
+            const imageFolderName = product.nome.replace(/\s\d+(GB|TB)/, '').toLowerCase();
 
             acc[modelName].colors[color][storage] = {
                 id: product.id,
@@ -69,6 +74,7 @@ async function fetchAndGroupProducts() {
         // Converte Set de armazenamentos para Array e ordena
         for (const model in grouped) {
             grouped[model].storages = Array.from(grouped[model].storages).sort((a, b) => {
+                // Lógica de ordenação: 1TB > 512GB > 256GB > 128GB
                 const aVal = parseInt(a.replace('GB', '').replace('TB', '000'));
                 const bVal = parseInt(b.replace('GB', '').replace('TB', '000'));
                 return aVal - bVal;
@@ -107,10 +113,11 @@ function renderOptions(modelName) {
     availableColors.forEach(color => {
         const colorBtn = document.createElement('button');
         colorBtn.className = 'color-btn';
-        colorBtn.textContent = color;
+        colorBtn.title = color; // Adiciona o nome da cor no tooltip
         colorBtn.dataset.color = color;
         colorBtn.style.backgroundColor = getColorCode(color);
-        colorBtn.style.color = (color === 'Branco' || color === 'Ultramarino') ? 'black' : 'white';
+        // Remove o texto para usar apenas a cor visual
+        // colorBtn.textContent = color; 
 
         colorBtn.addEventListener('click', () => {
             selectedColor = color;
@@ -142,56 +149,92 @@ function renderOptions(modelName) {
     // Selecionar o primeiro de cada como padrão
     if (availableColors.length > 0) {
         selectedColor = availableColors[0];
-        colorOptionsDiv.querySelector(`[data-color="${selectedColor}"]`).classList.add('selected');
+        const firstColorBtn = colorOptionsDiv.querySelector(`[data-color="${selectedColor}"]`);
+        if (firstColorBtn) firstColorBtn.classList.add('selected');
     }
     if (model.storages.length > 0) {
         selectedStorage = model.storages[0];
-        storageOptionsDiv.querySelector(`[data-storage="${selectedStorage}"]`).classList.add('selected');
+        const firstStorageBtn = storageOptionsDiv.querySelector(`[data-storage="${selectedStorage}"]`);
+        if (firstStorageBtn) firstStorageBtn.classList.add('selected');
     }
 }
 
 // Função para buscar e renderizar a galeria de imagens
 async function fetchAndRenderGallery(imageFolderName) {
     const galleryDiv = document.getElementById('thumbnail-gallery');
-    const mainImage = document.getElementById('main-product-image');
+    const carouselDiv = document.getElementById('image-carousel');
+    
     galleryDiv.innerHTML = '';
+    carouselDiv.innerHTML = '';
+    currentImageIndex = 0;
+    currentImagePaths = [];
 
     try {
-        // O nome da pasta de imagem no backend é o nome do produto com espaços
-        const folderName = imageFolderName.replace(/_/g, ' ');
-
-        const response = await fetch(`${API_URL}/produtos/${folderName}/imagens`);
-        const imagePaths = await response.json(); // Ex: ['iphone 15 branco/1.webp', 'iphone 15 branco/2.webp', ...]
+        const folderName = imageFolderName;
+        const encodedFolderName = encodeURIComponent(folderName);
+        
+        const response = await fetch(`${API_URL}/produtos/${encodedFolderName}/imagens`);
+        const imagePaths = await response.json();
+        currentImagePaths = imagePaths;
 
         if (imagePaths.length > 0) {
-            // Define a imagem principal
-            const firstImagePath = `${API_URL.replace('/api', '')}/uploads/${imagePaths[0]}`;
-            mainImage.src = firstImagePath;
+            // 1. Renderiza as imagens no carrossel
+            imagePaths.forEach(imagePath => {
+                const fullPath = `${API_URL.replace('/api', '')}/uploads/${imagePath}`;
+                const img = document.createElement('img');
+                img.src = fullPath;
+                img.alt = folderName;
+                img.classList.add('carousel-image');
+                carouselDiv.appendChild(img);
+            });
 
-            // Cria as miniaturas
+            // 2. Renderiza as miniaturas
             imagePaths.forEach((imagePath, index) => {
                 const fullPath = `${API_URL.replace('/api', '')}/uploads/${imagePath}`;
                 const thumbnail = document.createElement('img');
                 thumbnail.src = fullPath;
                 thumbnail.alt = `Miniatura ${index + 1}`;
+                
                 thumbnail.addEventListener('click', () => {
-                    mainImage.src = fullPath;
-                    document.querySelectorAll('.thumbnail-gallery img').forEach(img => img.classList.remove('selected'));
-                    thumbnail.classList.add('selected');
+                    currentImageIndex = index;
+                    updateCarousel();
+                    updateThumbnails();
                 });
                 
-                if (index === 0) {
-                    thumbnail.classList.add('selected');
-                }
                 galleryDiv.appendChild(thumbnail);
             });
+
+            // 3. Inicializa o carrossel e as miniaturas
+            updateCarousel();
+            updateThumbnails();
+
         } else {
-            mainImage.src = 'https://via.placeholder.com/400x500/0A0A0A/B8860B?text=Sem+Imagem';
+            carouselDiv.innerHTML = '<img src="https://via.placeholder.com/400x500/0A0A0A/B8860B?text=Sem+Imagem" alt="Sem Imagem">';
         }
     } catch (error) {
         console.error('Erro ao buscar galeria de imagens:', error);
-        mainImage.src = 'https://via.placeholder.com/400x500/0A0A0A/B8860B?text=Erro+Carregar+Imagem';
+        carouselDiv.innerHTML = '<img src="https://via.placeholder.com/400x500/0A0A0A/B8860B?text=Erro+Carregar+Imagem" alt="Erro Carregar Imagem">';
     }
+}
+
+// Função para atualizar a posição do carrossel
+function updateCarousel() {
+    const carouselDiv = document.getElementById('image-carousel');
+    // É necessário garantir que o carrossel tenha imagens antes de tentar obter o offsetWidth
+    if (carouselDiv.children.length > 0) {
+        const imageWidth = carouselDiv.children[0].offsetWidth;
+        carouselDiv.style.transform = `translateX(-${currentImageIndex * imageWidth}px)`;
+    }
+}
+
+// Função para atualizar a seleção da miniatura
+function updateThumbnails() {
+    document.querySelectorAll('#thumbnail-gallery img').forEach((img, index) => {
+        img.classList.remove('selected');
+        if (index === currentImageIndex) {
+            img.classList.add('selected');
+        }
+    });
 }
 
 // Função para atualizar os detalhes do produto na tela
@@ -212,7 +255,11 @@ function updateProductDetails() {
     addToCartBtn.disabled = true;
 
     if (selectedColor && selectedStorage) {
-        const product = model.colors[selectedColor][selectedStorage];
+        // Verifica se a combinação cor/armazenamento existe
+        const product = model.colors[selectedColor] && model.colors[selectedColor][selectedStorage]
+            ? model.colors[selectedColor][selectedStorage]
+            : null;
+
         if (product) {
             currentProductId = product.id;
             currentProductPrice = product.preco;
@@ -230,12 +277,51 @@ function updateProductDetails() {
             } else {
                 stockSpan.textContent = 'Indisponível';
             }
+        } else {
+             // Se a combinação não existir (ex: cor X não tem armazenamento Y), desabilita a compra
+            stockSpan.textContent = 'Indisponível';
+            priceSpan.textContent = 'R$ 0,00';
+            // O carrossel deve ser limpo ou mostrar uma imagem de "indisponível"
+            const carouselDiv = document.getElementById('image-carousel');
+            const galleryDiv = document.getElementById('thumbnail-gallery');
+            carouselDiv.innerHTML = '<img src="https://via.placeholder.com/400x500/0A0A0A/B8860B?text=Combinação+Indisponível" alt="Combinação Indisponível">';
+            galleryDiv.innerHTML = '';
         }
     }
 }
 
 // Lógica de inicialização da página
 function initializeModelPage() {
+    // Adiciona eventos de navegação do carrossel (apenas uma vez)
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    
+    // Remove listeners anteriores para evitar duplicação (se a função for chamada mais de uma vez)
+    // Embora o ideal seja que só seja chamada uma vez, esta é uma boa prática.
+    if (prevBtn) prevBtn.removeEventListener('click', handlePrevClick);
+    if (nextBtn) nextBtn.removeEventListener('click', handleNextClick);
+
+    function handlePrevClick() {
+        if (currentImagePaths.length > 0) {
+            currentImageIndex = (currentImageIndex - 1 + currentImagePaths.length) % currentImagePaths.length;
+            updateCarousel();
+            updateThumbnails();
+        }
+    }
+
+    function handleNextClick() {
+        if (currentImagePaths.length > 0) {
+            currentImageIndex = (currentImageIndex + 1) % currentImagePaths.length;
+            updateCarousel();
+            updateThumbnails();
+        }
+    }
+
+    if (prevBtn && nextBtn) {
+        prevBtn.addEventListener('click', handlePrevClick);
+        nextBtn.addEventListener('click', handleNextClick);
+    }
+    
     // Tenta extrair o nome do modelo da URL (ex: iphone15.html -> iPhone 15)
     const pageName = window.location.pathname.split('/').pop().replace('.html', '');
     

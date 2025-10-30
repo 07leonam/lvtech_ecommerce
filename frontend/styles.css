@@ -184,13 +184,93 @@ nav ul li a:hover {
     padding: 40px;
 }
 
+.product-image {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.main-image-container {
+    position: relative;
+    width: 100%;
+    max-width: 400px; /* Ajuste conforme necessário */
+    overflow: hidden;
+}
+
+.image-carousel {
+    display: flex;
+    transition: transform 0.3s ease-in-out;
+}
+
+.image-carousel img {
+    width: 100%;
+    height: auto;
+    flex-shrink: 0;
+    display: block;
+}
+
+.carousel-nav {
+    position: absolute;
+    top: 50%;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.carousel-nav button {
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+    z-index: 10;
+    pointer-events: all;
+    border-radius: 50%;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    font-size: 20px; /* Aumenta o tamanho do ícone */
+    line-height: 1;
+}
+
+.carousel-nav button:hover {
+    opacity: 1;
+}
+
+.thumbnail-gallery {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+    overflow-x: auto;
+    padding: 10px 0;
+}
+
+.thumbnail-gallery img {
+    width: 70px;
+    height: 70px;
+    object-fit: cover;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+    border-radius: 5px;
+}
+
+.thumbnail-gallery img.selected {
+    border-color: var(--color-accent); /* Usa a cor de destaque do tema */
+}
+
 .product-image img {
+    /* Estilo original da imagem, que será substituído pelo carrossel, mas mantido para fallback */
     width: 100%;
     max-height: 500px;
     object-fit: contain;
     border-radius: 8px;
     background-color: #f0f0f0;
 }
+
+/* O estilo da imagem principal foi movido para o carrossel, mas mantemos o .product-image para contexto */
 
 .product-info h2 {
     font-family: var(--font-family-primary);

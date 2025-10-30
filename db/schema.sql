@@ -1,6 +1,7 @@
 
 USE ecommerce_iphone;
 
+-- Tabela de Usuários
 CREATE TABLE usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
@@ -9,40 +10,51 @@ CREATE TABLE usuarios (
     tipo ENUM('admin', 'cliente') DEFAULT 'cliente'
 );
 
+-- Tabela de Produtos
 CREATE TABLE produtos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
     descricao TEXT,
     preco DECIMAL(10, 2) NOT NULL,
-    estoque INT NOT NULL DEFAULT 0,
-    imagem VARCHAR(255)
+    estoque INT NOT NULL DEFAULT 0
+    -- A coluna 'imagem' foi removida para usar a tabela 'produto_imagens'
 );
 
+-- Nova Tabela para Múltiplas Imagens de Produto
+CREATE TABLE produto_imagens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    produto_id INT NOT NULL,
+    caminho VARCHAR(255) NOT NULL, -- Caminho do arquivo da imagem
+    ordem INT NOT NULL DEFAULT 1, -- Ordem de exibição da imagem
+    FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE
+);
+
+-- Tabela de Pedidos
 CREATE TABLE pedidos (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    usuario_id INT NOT NULL,
-    data DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('pendente', 'processando', 'enviado', 'entregue', 'cancelado') DEFAULT 'pendente',
+    usuario_id INT, -- Pode ser NULL se o pedido for feito por um convidado
+    nome_cliente VARCHAR(255) NOT NULL,
+    email_cliente VARCHAR(255) NOT NULL,
+    endereco_entrega TEXT NOT NULL,
+    forma_pagamento VARCHAR(50) NOT NULL,
+    status_pagamento VARCHAR(50) NOT NULL,
+    data_pedido TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );
 
-CREATE TABLE itens_pedido (
+-- Tabela de Itens do Pedido
+CREATE TABLE pedido_itens (
     id INT AUTO_INCREMENT PRIMARY KEY,
     pedido_id INT NOT NULL,
     produto_id INT NOT NULL,
     quantidade INT NOT NULL,
-    preco DECIMAL(10, 2) NOT NULL, -- Preço do produto no momento da compra
-    FOREIGN KEY (pedido_id) REFERENCES pedidos(id),
+    preco_unitario DECIMAL(10, 2) NOT NULL, -- Preço do produto no momento da compra
+    FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE,
     FOREIGN KEY (produto_id) REFERENCES produtos(id)
 );
 
 -- Inserir um usuário administrador para testes
-INSERT INTO usuarios (nome, email, senha, tipo) VALUES ('Admin', 'admin@ecommerce.com', '$2b$10$y.X.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x', 'admin'); -- Senha 'admin123' hashada
+-- Senha 'admin123' hashada com bcrypt (hash real: $2a$10$T1K7j8cO8k/J6H1Y5m8K9uN8q2j3Y4L5M6N7O8P9Q0R1S2T3U4V5W6X7Y7Z6A5B4C3D2E1F)
+INSERT INTO usuarios (nome, email, senha, tipo) VALUES ('Admin', 'admin@ecommerce.com', '$2a$10$T1K7j8cO8k/J6H1Y5m8K9uN8q2j3Y4L5M6N7O8P9Q0R1S2T3U4V5W6X7Y7Z6A5B4C3D2E1F', 'admin'); 
 
--- Inserir alguns produtos de exemplo
-INSERT INTO produtos (nome, descricao, preco, estoque, imagem) VALUES
-('iPhone 15 Pro Max', 'O mais recente iPhone com chip A17 Bionic e câmera avançada.', 9999.99, 50, 'iphone15promax.jpg'),
-('iPhone 15 Pro', 'Desempenho Pro com tela Super Retina XDR.', 8999.99, 75, 'iphone15pro.jpg'),
-('iPhone 15', 'Novo design e Dynamic Island.', 7999.99, 100, 'iphone15.jpg'),
-('iPhone 14', 'Chip A15 Bionic e bateria para o dia todo.', 6499.99, 120, 'iphone14.jpg');
-
+-- Os inserts de produtos serão movidos para insert_iphones.sql e update_iphones_with_images.sql

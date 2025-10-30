@@ -31,7 +31,15 @@
         <div class="container">
             <div class="product-detail-grid">
                 <div class="product-image">
-                    <img id="main-product-image" src="https://via.placeholder.com/400x500/0A0A0A/B8860B?text=[MODELO_NOME]" alt="[MODELO_NOME]">
+                    <div class="main-image-container">
+                        <div id="image-carousel" class="image-carousel">
+                            <!-- Imagens principais serão carregadas aqui -->
+                        </div>
+                        <div class="carousel-nav">
+                            <button id="prev-btn" aria-label="Imagem anterior">&#10094;</button>
+                            <button id="next-btn" aria-label="Próxima imagem">&#10095;</button>
+                        </div>
+                    </div>
                     <div id="thumbnail-gallery" class="thumbnail-gallery">
                         <!-- Miniaturas de imagem serão carregadas aqui -->
                     </div>
