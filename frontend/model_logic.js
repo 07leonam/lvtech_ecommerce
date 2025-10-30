@@ -1,5 +1,15 @@
-// Configuração da API
-const API_URL = 'http://localhost:3000/api';
+// model_logic.js
+
+// Função auxiliar para extrair apenas o nome do arquivo, ignorando o caminho da pasta
+const getFilename = (path) => {
+    // Garante que funciona com separadores de caminho '/' e '\' (Windows/Linux)
+    const parts = path.split('/');
+    let filename = parts[parts.length - 1];
+    
+    // Se o caminho ainda incluir a pasta antiga, removemos TUDO que estiver antes do último separador
+    const finalFilenameParts = filename.split('\\').pop(); 
+    return finalFilenameParts;
+};
 
 // Mapeamento de modelos para cores e armazenamentos (será carregado do backend)
 let modelData = {};
@@ -30,11 +40,11 @@ async function fetchAndGroupProducts() {
         
         // Agrupar produtos por modelo (ex: 'iPhone 15', 'iPhone 16e', etc.)
         const grouped = allProducts.reduce((acc, product) => {
-            // Extrai o nome do modelo (ex: 'iPhone 15', 'iPhone 17 Pro Max')
-            const match = product.nome.match(/iPhone\s\d+(e|\sPro|\sPro\sMax)?/);
+            // CORREÇÃO FINAL: Usa (e|\sPro Max|\sPro)? para garantir que "Pro Max" seja priorizado
+            const match = product.nome.match(/iPhone\s\d+(e|\sPro Max|\sPro)?/);
             if (!match) return acc;
 
-            const modelName = match[0].trim();
+            const modelName = match[0].trim(); // Este deve ser 'iPhone 17 Pro Max'
             
             // Extrai a cor (ex: 'Branco', 'Preto', 'Ultramarino', 'Laranja')
             let color = 'Cor Desconhecida';
@@ -42,6 +52,23 @@ async function fetchAndGroupProducts() {
             else if (product.nome.includes('Laranja')) color = 'Laranja';
             else if (product.nome.includes('Branco')) color = 'Branco';
             else if (product.nome.includes('Preto')) color = 'Preto';
+            
+            // CÁLCULO PARA imageFolderName
+            const modelVersionPart = modelName.replace('iPhone ', '').trim();
+            const folderModelPart = modelVersionPart.toLowerCase().replace(/\s/g, '_');
+            const folderColorPart = color.toLowerCase();
+
+            // Define o nome base da pasta (Ex: '15_branco', '16e_preto', '17_pro_max_laranja')
+            let imageFolderName = `${folderModelPart}_${folderColorPart}`;
+
+            // Regra de Exceção para pastas sem o nome da cor (modelos Pro/Pro Max Preto/Branco)
+            if ((folderModelPart.includes('pro') || folderModelPart.includes('max')) && (folderColorPart === 'preto' || folderColorPart === 'branco' || folderColorPart === 'cor desconhecida')) {
+                if (folderColorPart === 'preto' || folderColorPart === 'branco') {
+                   imageFolderName = folderModelPart; 
+                }
+            }
+
+            // Fim do CÁLCULO
             
             // Extrai o armazenamento (ex: '128GB', '256GB', '1TB')
             const storageMatch = product.nome.match(/\d+(GB|TB)/);
@@ -55,15 +82,11 @@ async function fetchAndGroupProducts() {
                 acc[modelName].colors[color] = {};
             }
 
-            // O nome da pasta de imagem no disco usa o nome do produto com a cor
-            // Ex: "iphone 15 branco" (sem o armazenamento)
-            const imageFolderName = product.nome.replace(/\s\d+(GB|TB)/, '').toLowerCase();
-
             acc[modelName].colors[color][storage] = {
                 id: product.id,
                 preco: product.preco,
                 estoque: product.estoque,
-                imageFolderName: imageFolderName, // Nome da pasta de imagens
+                imageFolderName: imageFolderName,
                 nome: product.nome
             };
             acc[modelName].storages.add(storage);
@@ -74,7 +97,6 @@ async function fetchAndGroupProducts() {
         // Converte Set de armazenamentos para Array e ordena
         for (const model in grouped) {
             grouped[model].storages = Array.from(grouped[model].storages).sort((a, b) => {
-                // Lógica de ordenação: 1TB > 512GB > 256GB > 128GB
                 const aVal = parseInt(a.replace('GB', '').replace('TB', '000'));
                 const bVal = parseInt(b.replace('GB', '').replace('TB', '000'));
                 return aVal - bVal;
@@ -85,7 +107,6 @@ async function fetchAndGroupProducts() {
         initializeModelPage();
     } catch (error) {
         console.error('Erro ao buscar e agrupar produtos:', error);
-        // alert('Erro ao carregar dados dos produtos. Verifique o servidor.');
     }
 }
 
@@ -116,8 +137,6 @@ function renderOptions(modelName) {
         colorBtn.title = color; // Adiciona o nome da cor no tooltip
         colorBtn.dataset.color = color;
         colorBtn.style.backgroundColor = getColorCode(color);
-        // Remove o texto para usar apenas a cor visual
-        // colorBtn.textContent = color; 
 
         colorBtn.addEventListener('click', () => {
             selectedColor = color;
@@ -178,9 +197,12 @@ async function fetchAndRenderGallery(imageFolderName) {
         currentImagePaths = imagePaths;
 
         if (imagePaths.length > 0) {
+            
             // 1. Renderiza as imagens no carrossel
             imagePaths.forEach(imagePath => {
-                const fullPath = `${API_URL.replace('/api', '')}/uploads/${imagePath}`;
+                const filename = getFilename(imagePath);
+                const fullPath = `${API_URL.replace('/api', '')}/uploads/${imageFolderName}/${filename}`;
+                
                 const img = document.createElement('img');
                 img.src = fullPath;
                 img.alt = folderName;
@@ -188,9 +210,11 @@ async function fetchAndRenderGallery(imageFolderName) {
                 carouselDiv.appendChild(img);
             });
 
-            // 2. Renderiza as miniaturas
+            // 2. Renderiza as miniaturas (Também corrigida com 'filename')
             imagePaths.forEach((imagePath, index) => {
-                const fullPath = `${API_URL.replace('/api', '')}/uploads/${imagePath}`;
+                const filename = getFilename(imagePath);
+                const fullPath = `${API_URL.replace('/api', '')}/uploads/${imageFolderName}/${filename}`;
+
                 const thumbnail = document.createElement('img');
                 thumbnail.src = fullPath;
                 thumbnail.alt = `Miniatura ${index + 1}`;
@@ -297,7 +321,6 @@ function initializeModelPage() {
     const nextBtn = document.getElementById('next-btn');
     
     // Remove listeners anteriores para evitar duplicação (se a função for chamada mais de uma vez)
-    // Embora o ideal seja que só seja chamada uma vez, esta é uma boa prática.
     if (prevBtn) prevBtn.removeEventListener('click', handlePrevClick);
     if (nextBtn) nextBtn.removeEventListener('click', handleNextClick);
 
@@ -325,16 +348,28 @@ function initializeModelPage() {
     // Tenta extrair o nome do modelo da URL (ex: iphone15.html -> iPhone 15)
     const pageName = window.location.pathname.split('/').pop().replace('.html', '');
     
-    // Mapeamento simplificado para o nome completo
-    if (pageName === 'iphone15') currentModelName = 'iPhone 15';
-    else if (pageName === 'iphone16e') currentModelName = 'iPhone 16e';
-    else if (pageName === 'iphone16') currentModelName = 'iPhone 16';
-    else if (pageName === 'iphone17') currentModelName = 'iPhone 17';
-    else if (pageName === 'iphone17pro') currentModelName = 'iPhone 17 Pro';
-    else if (pageName === 'iphone17promax') currentModelName = 'iPhone 17 Pro Max';
+    // CORREÇÃO: Mapeamento em ordem decrescente de especificidade (Pro Max antes de Pro)
+    if (pageName === 'iphone17promax') { 
+        currentModelName = 'iPhone 17 Pro Max';
+    }
+    else if (pageName === 'iphone17pro') {
+        currentModelName = 'iPhone 17 Pro';
+    }
+    else if (pageName === 'iphone17') {
+        currentModelName = 'iPhone 17';
+    }
+    else if (pageName === 'iphone16e') {
+        currentModelName = 'iPhone 16e';
+    }
+    else if (pageName === 'iphone16') {
+        currentModelName = 'iPhone 16';
+    }
+    else if (pageName === 'iphone15') {
+        currentModelName = 'iPhone 15';
+    }
     
     if (!currentModelName || !modelData[currentModelName]) {
-        // Redirecionar ou mostrar erro se o modelo não for encontrado
+        // Se o modelo não for encontrado, exibe a mensagem de erro
         const container = document.querySelector('.product-detail .container');
         if (container) {
             container.innerHTML = '<h2>Modelo de iPhone não encontrado.</h2><a href="index.html">Voltar para a lista de modelos</a>';

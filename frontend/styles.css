@@ -134,7 +134,7 @@ nav ul li a:hover {
     background-color: #f0f0f0; /* Fundo claro para imagens */
 }
 
-.product-card h3 {
+.product-card h3 { 
     font-family: var(--font-family-primary);
     font-size: 24px;
     margin-bottom: 10px;
