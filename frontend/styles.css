@@ -131,7 +131,7 @@ nav ul li a:hover {
     object-fit: contain; /* Para exibir o produto sem cortar */
     border-radius: 8px;
     margin-bottom: 20px;
-    background-color: #f0f0f0; /* Fundo claro para imagens */
+    background-color: #FFFFFF; /* Fundo claro para imagens */
 }
 
 .product-card h3 { 
@@ -203,6 +203,7 @@ nav ul li a:hover {
 }
 
 .image-carousel img {
+    min-width: 100%;
     width: 100%;
     height: auto;
     flex-shrink: 0;
@@ -303,23 +304,62 @@ nav ul li a:hover {
 
 .add-to-cart-section {
     margin-top: 30px;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     align-items: center;
-    gap: 20px;
+    gap: 15px;
 }
 
 .add-to-cart-section label {
     font-size: 18px;
     font-weight: 500;
+    grid-column: 1 / 2; 
+    align-self: end; 
 }
 
 .add-to-cart-section input[type="number"] {
-    width: 100px;
+    width: 100%; 
+    max-width: 100px;
     padding: 12px;
     border: 1px solid #CCCCCC;
     border-radius: 5px;
     font-size: 18px;
     text-align: center;
+    grid-column: 1 / 2; 
+}
+
+.action-buttons {
+    grid-column: 2 / 3; 
+    display: flex;
+    flex-direction: column; 
+    gap: 10px; 
+    align-items: stretch;
+}
+
+@media (max-width: 768px) {
+    .add-to-cart-section {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .add-to-cart-section label {
+        width: 100%;
+        text-align: left;
+    }
+
+    .add-to-cart-section input[type="number"] {
+        max-width: 100%; 
+        width: 100%;
+        grid-column: auto; 
+    }
+    
+    .action-buttons {
+        width: 100%;
+        grid-column: auto;
+    }
+    
 }
 
 /* Buttons */
@@ -336,6 +376,7 @@ nav ul li a:hover {
     text-decoration: none;
     display: inline-block;
     text-transform: uppercase;
+    width: 100%;
 }
 
 .btn-primary:hover {
@@ -354,9 +395,12 @@ nav ul li a:hover {
     font-weight: 600;
     transition: background-color 0.3s ease, color 0.3s ease;
     text-decoration: none;
-    display: inline-block;
-    margin-left: 15px;
     text-transform: uppercase;
+    display: block; 
+    width: 100%;
+    text-align: center;
+    margin-left: 0 !important; 
+    margin-top: 0 !important;
 }
 
 .btn-secondary:hover {
@@ -960,30 +1004,57 @@ footer {
 .color-picker, .storage-picker {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 15px;
 }
 
-.color-btn, .storage-btn {
+.storage-btn {
     padding: 10px 20px;
-    border: 2px solid var(--color-primary);
-    border-radius: 5px;
+    border: 1px solid #DDDDDD; /* Borda suave e discreta */
+    border-radius: 8px; /* Cantos mais arredondados */
     cursor: pointer;
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 500;
     transition: all 0.2s ease;
-    background-color: var(--color-secondary);
+    background-color: var(--color-secondary); /* Fundo branco */
+    color: var(--color-text-dark);
 }
 
-.color-btn.selected, .storage-btn.selected {
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.5); /* Sombra de destaque */
-    transform: scale(1.05);
+.storage-btn.selected {
+    border-color: var(--color-accent); /* Borda da cor de destaque (Ouro/Bronze) */
+    background-color: #FFF8E1; /* Fundo suavemente amarelado/destacado */
+    box-shadow: 0 0 0 1px var(--color-accent); /* Borda de destaque mais fina */
+    transform: scale(1.02); /* Pequeno efeito de zoom */
+    font-weight: 700;
+}
+
+.storage-btn.selected {
+    border-color: var(--color-accent); /* Borda da cor de destaque (Ouro/Bronze) */
+    background-color: #FFF8E1; /* Fundo suavemente amarelado/destacado */
+    box-shadow: 0 0 0 1px var(--color-accent); /* Borda de destaque mais fina */
+    transform: scale(1.02); /* Pequeno efeito de zoom */
+    font-weight: 700;
 }
 
 .color-btn {
-    min-width: 100px;
-    text-align: center;
-    /* Para cores, a cor de fundo será definida via JS */
+    width: 35px;
+    height: 35px;
+    min-width: 35px; /* Garante que não haja texto */
+    padding: 0;
+    border: 2px solid #DDDDDD; /* Borda suave */
+    border-radius: 50%; /* Faz o botão ser um círculo */
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Sombra suave */
+}
+
+.color-btn.selected {
+    border-color: var(--color-accent); /* Borda da cor de destaque */
+    box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.5), 0 1px 3px rgba(0, 0, 0, 0.1); /* Anel de destaque */
+    transform: scale(1.15); /* Aumenta o círculo selecionado */
+}
+
+.color-btn:hover:not(.selected) {
+    transform: scale(1.05); /* Pequeno aumento no hover */
 }
 
 /* Responsividade para a galeria */
