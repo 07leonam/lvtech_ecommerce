@@ -65,6 +65,52 @@ const authorizeAdmin = (req, res, next) => {
   if (req.user.tipo !== "admin") return res.sendStatus(403);
   next();
 };
+// server.js (ADICIONAR ESTE BLOCO)
+
+// ----------------------- ROTAS DE AUTENTICAÇÃO -----------------------
+
+app.post("/api/login", async (req, res) => {
+    const { email, senha } = req.body;
+    
+    try {
+        const [users] = await pool.execute("SELECT * FROM usuarios WHERE email = ?", [email]);
+        const user = users[0];
+
+        // ATENÇÃO DE SEGURANÇA: Esta linha é uma comparação de texto puro.
+        // É NECESSÁRIO porque seu banco não tem o hash bcrypt. Mude isso em produção!
+        // No futuro, use: await bcrypt.compare(senha, user.senha)
+        if (user && senha === user.senha) { 
+            
+            // Cria o objeto de usuário sem a senha para segurança
+            const { senha: _, ...userWithoutPass } = user; 
+            
+            // 1. Gera o token JWT
+            const token = jwt.sign(userWithoutPass, JWT_SECRET, { expiresIn: '1h' });
+            
+            // 2. Define o cookie de autenticação (CRÍTICO para o frontend)
+            res.cookie('token', token, { 
+                httpOnly: true, 
+                secure: process.env.NODE_ENV === 'production', 
+                maxAge: 3600000 // 1 hora
+            }); 
+            
+            // 3. Retorna os dados do usuário (CRÍTICO para o admin.js verificar o tipo)
+            return res.json({ message: "Login realizado com sucesso", user: userWithoutPass }); 
+        } else {
+            return res.status(401).send("Email ou senha inválidos.");
+        }
+    } catch (error) {
+        console.error("Erro no login:", error);
+        res.status(500).send("Erro no servidor.");
+    }
+});
+
+app.post("/api/logout", (req, res) => {
+    res.clearCookie('token');
+    res.sendStatus(200);
+});
+
+// ----------------------- FIM ROTAS DE AUTENTICAÇÃO -----------------------
 
 // ----------------------- ROTAS DE PRODUTOS (ADMIN) -----------------------
 const uploadMultiple = upload.array("imagens", 6); // até 6 imagens por produto

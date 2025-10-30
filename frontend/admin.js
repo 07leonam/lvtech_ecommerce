@@ -23,6 +23,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         
         if (response.ok) {
             const data = await response.json();
+            console.log('Resposta do Login (Data):', data);
             if (data.user.tipo === 'admin') {
                 isAuthenticated = true;
                 document.getElementById('login-section').style.display = 'none';
