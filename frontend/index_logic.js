@@ -1,11 +1,7 @@
-// index_logic.js
-
-// OBS: Assumimos que a variável global API_URL está definida em script.js
-
 // Helper para converter o nome do produto para o formato da pasta (ex: '15_branco')
 const getFolderNameFromProductName = (productName) => {
-    // CORREÇÃO CRÍTICA: Prioriza '\sPro Max' para que o Max não seja capturado como apenas 'Pro'
-    const match = productName.match(/iPhone\s\d+(e|\sPro Max|\sPro)?/);
+    // Regex para capturar QUALQUER modelo iPhone numérico, priorizando Max/Pro
+    const match = productName.match(/iPhone\s\d+\s?(e|\sPro Max|\sPro)?/);
     if (!match) return null; 
 
     const modelName = match[0].trim();
@@ -61,8 +57,7 @@ async function loadIndexModels() {
 
         // 1. Agrupa os produtos por nome do modelo (ex: 'iPhone 15')
         const modelsMap = allProducts.reduce((acc, product) => {
-            // CORREÇÃO CRÍTICA APLICADA AQUI TAMBÉM
-            const match = product.nome.match(/iPhone\s\d+(e|\sPro Max|\sPro)?/); 
+            const match = product.nome.match(/iPhone\s\d+\s?(e|\sPro Max|\sPro)?/); 
             if (!match) return acc;
 
             const modelName = match[0].trim();
@@ -83,16 +78,15 @@ async function loadIndexModels() {
 
         // 2. Cria os cards dinamicamente
         Object.values(modelsMap).forEach(product => {
-            // CORREÇÃO CRÍTICA APLICADA AQUI TAMBÉM
-            const modelNameMatch = product.nome.match(/iPhone\s\d+(e|\sPro Max|\sPro)?/); 
+            const modelNameMatch = product.nome.match(/iPhone\s\d+\s?(e|\sPro Max|\sPro)?/); 
             const modelName = modelNameMatch ? modelNameMatch[0].trim() : 'Modelo Desconhecido';
 
-            // Gera o nome do arquivo HTML (ex: 'iPhone 15' -> 'iphone15.html')
-            const pageName = modelName.toLowerCase().replace(/\s/g, '').replace('e', 'e'); 
+            // GERAÇÃO DO PARÂMETRO DA URL
+            // Ex: 'iPhone 17 Pro Max' -> 'iphone17promax'
+            const pageParam = modelName.toLowerCase().replace(/\s/g, ''); 
             
             // 3. Montar a URL da imagem usando a lógica de caminhos
             const imageFolderName = getFolderNameFromProductName(product.nome);
-            // O campo 'imagem' já é a primeira imagem, mas precisamos limpar o caminho
             const filename = product.imagem ? getFilename(product.imagem) : null;
             
             let imageUrl = 'https://via.placeholder.com/220/0A0A0A/B8860B?text=Sem+Imagem';
@@ -104,7 +98,7 @@ async function loadIndexModels() {
 
             // 4. Cria o card HTML
             const cardHtml = `
-                <div class="product-card" onclick="window.location.href='${pageName}.html'">
+                <div class="product-card" onclick="window.location.href='product_detail.html?model=${pageParam}'">
                     <img src="${imageUrl}" alt="${modelName}">
                     <h3>${modelName}</h3>
                     <p>A partir de ${formatPrice(product.preco)}</p>

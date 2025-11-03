@@ -41,6 +41,36 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     }
 });
 
+async function checkLoginStatus() {
+    try {
+        // Usa uma rota de checagem leve no backend (vamos criá-la no server.js)
+        // Se a requisição tiver o cookie, e o cookie for válido, ela retorna 200/dados do usuário.
+        const response = await fetch(`${API_URL}/status`, {
+            method: 'GET',
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.user.tipo === 'admin') {
+                isAuthenticated = true;
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('admin-dashboard').style.display = 'block';
+                loadAdminProducts();
+                return true;
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao verificar status de login:', error);
+    }
+    // Se falhar ou não for admin
+    isAuthenticated = false;
+    document.getElementById('login-section').style.display = 'block';
+    document.getElementById('admin-dashboard').style.display = 'none';
+    return false;
+}
+
+
 // Logout
 document.getElementById('logout-btn').addEventListener('click', async (e) => {
     e.preventDefault();
@@ -59,6 +89,7 @@ document.getElementById('logout-btn').addEventListener('click', async (e) => {
         console.error('Erro no logout:', error);
     }
 });
+
 
 // Carregar produtos para o administrador
 async function loadAdminProducts() {
@@ -106,7 +137,7 @@ document.getElementById('product-form').addEventListener('submit', async (e) => 
     formData.append('preco', preco);
     formData.append('estoque', estoque);
     if (imagemFile) {
-        formData.append('imagem', imagemFile);
+        formData.append('imagens', imagemFile);
     }
     
     try {
@@ -267,4 +298,7 @@ async function updateCartCount() {
 // Inicializar a página
 document.addEventListener('DOMContentLoaded', () => {
     updateCartCount();
+    checkLoginStatus(); // <<< CHAMA A CHECAGEM DE ESTADO AQUI
 });
+
+

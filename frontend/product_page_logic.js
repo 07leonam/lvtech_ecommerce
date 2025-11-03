@@ -1,12 +1,8 @@
-// model_logic.js
 
 // Função auxiliar para extrair apenas o nome do arquivo, ignorando o caminho da pasta
 const getFilename = (path) => {
-    // Garante que funciona com separadores de caminho '/' e '\' (Windows/Linux)
     const parts = path.split('/');
     let filename = parts[parts.length - 1];
-    
-    // Se o caminho ainda incluir a pasta antiga, removemos TUDO que estiver antes do último separador
     const finalFilenameParts = filename.split('\\').pop(); 
     return finalFilenameParts;
 };
@@ -40,13 +36,13 @@ async function fetchAndGroupProducts() {
         
         // Agrupar produtos por modelo (ex: 'iPhone 15', 'iPhone 16e', etc.)
         const grouped = allProducts.reduce((acc, product) => {
-            // CORREÇÃO FINAL: Usa (e|\sPro Max|\sPro)? para garantir que "Pro Max" seja priorizado
-            const match = product.nome.match(/iPhone\s\d+(e|\sPro Max|\sPro)?/);
+            // Regex para capturar QUALQUER modelo iPhone numérico, priorizando Max/Pro
+            const match = product.nome.match(/iPhone\s\d+\s?(e|\sPro Max|\sPro)?/);
             if (!match) return acc;
 
-            const modelName = match[0].trim(); // Este deve ser 'iPhone 17 Pro Max'
+            const modelName = match[0].trim();
             
-            // Extrai a cor (ex: 'Branco', 'Preto', 'Ultramarino', 'Laranja')
+            // Extrai a cor
             let color = 'Cor Desconhecida';
             if (product.nome.includes('Ultramarino')) color = 'Ultramarino';
             else if (product.nome.includes('Laranja')) color = 'Laranja';
@@ -58,7 +54,6 @@ async function fetchAndGroupProducts() {
             const folderModelPart = modelVersionPart.toLowerCase().replace(/\s/g, '_');
             const folderColorPart = color.toLowerCase();
 
-            // Define o nome base da pasta (Ex: '15_branco', '16e_preto', '17_pro_max_laranja')
             let imageFolderName = `${folderModelPart}_${folderColorPart}`;
 
             // Regra de Exceção para pastas sem o nome da cor (modelos Pro/Pro Max Preto/Branco)
@@ -67,10 +62,8 @@ async function fetchAndGroupProducts() {
                    imageFolderName = folderModelPart; 
                 }
             }
-
-            // Fim do CÁLCULO
             
-            // Extrai o armazenamento (ex: '128GB', '256GB', '1TB')
+            // Extrai o armazenamento
             const storageMatch = product.nome.match(/\d+(GB|TB)/);
             const storage = storageMatch ? storageMatch[0] : 'Armazenamento Desconhecido';
 
@@ -244,10 +237,14 @@ async function fetchAndRenderGallery(imageFolderName) {
 // Função para atualizar a posição do carrossel
 function updateCarousel() {
     const carouselDiv = document.getElementById('image-carousel');
-    // É necessário garantir que o carrossel tenha imagens antes de tentar obter o offsetWidth
-    if (carouselDiv.children.length > 0) {
-        const imageWidth = carouselDiv.children[0].offsetWidth;
-        carouselDiv.style.transform = `translateX(-${currentImageIndex * imageWidth}px)`;
+    const imageCount = carouselDiv.children.length;
+    
+    if (imageCount > 0) {
+        // CORREÇÃO CRÍTICA DO CARROSSEL: Recalcular largura total e deslocamento em pixels
+        carouselDiv.style.width = `${imageCount * 100}%`; 
+        const containerWidth = carouselDiv.parentElement.offsetWidth;
+
+        carouselDiv.style.transform = `translateX(-${currentImageIndex * containerWidth}px)`;
     }
 }
 
@@ -320,7 +317,6 @@ function initializeModelPage() {
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
     
-    // Remove listeners anteriores para evitar duplicação (se a função for chamada mais de uma vez)
     if (prevBtn) prevBtn.removeEventListener('click', handlePrevClick);
     if (nextBtn) nextBtn.removeEventListener('click', handleNextClick);
 
@@ -345,34 +341,43 @@ function initializeModelPage() {
         nextBtn.addEventListener('click', handleNextClick);
     }
     
-    // Tenta extrair o nome do modelo da URL (ex: iphone15.html -> iPhone 15)
-    const pageName = window.location.pathname.split('/').pop().replace('.html', '');
+    // NOVO CÓDIGO CRÍTICO: Extrai e Reconstrói o nome do modelo
+    const urlParams = new URLSearchParams(window.location.search);
+    const modelParam = urlParams.get('model'); // Captura, ex: 'iphone17promax'
     
-    // CORREÇÃO: Mapeamento em ordem decrescente de especificidade (Pro Max antes de Pro)
-    if (pageName === 'iphone17promax') { 
-        currentModelName = 'iPhone 17 Pro Max';
-    }
-    else if (pageName === 'iphone17pro') {
-        currentModelName = 'iPhone 17 Pro';
-    }
-    else if (pageName === 'iphone17') {
-        currentModelName = 'iPhone 17';
-    }
-    else if (pageName === 'iphone16e') {
-        currentModelName = 'iPhone 16e';
-    }
-    else if (pageName === 'iphone16') {
-        currentModelName = 'iPhone 16';
-    }
-    else if (pageName === 'iphone15') {
-        currentModelName = 'iPhone 15';
+    // Se não houver parâmetro, paramos.
+    if (!modelParam) {
+        currentModelName = null;
+    } else {
+        // Tenta reconstruir o nome canônico (Ex: iphone17promax -> iPhone 17 Pro Max)
+        // 1. Remove 'iphone' do início
+        let name = modelParam.replace('iphone', ''); 
+        
+        // 2. Converte números e letras minúsculas para maiúsculas/espaços
+        name = name.replace(/(\d+)/, ' $1'); // Coloca espaço antes do número
+        name = name.replace(/pro/g, ' Pro'); // Adiciona espaço e capitaliza Pro
+        name = name.replace(/max/g, ' Max'); // Adiciona espaço e capitaliza Max
+        name = name.replace(/e$/, 'e');      // Mantém o 'e' (ex: 16e)
+        name = name.trim();
+        
+        // 3. Adiciona "iPhone" no início
+        currentModelName = 'iPhone ' + name.charAt(0).toUpperCase() + name.slice(1);
+        
+        // 4. Limpa espaços duplos que possam ter sido criados (Ex: "iPhone  17 Pro Max" -> "iPhone 17 Pro Max")
+        currentModelName = currentModelName.replace(/\s+/g, ' ').trim();
     }
     
+    // console.log("Modelo Reconstruído:", currentModelName); // Use para debugging
+
+    // Se o modelo não foi encontrado na URL ou nos dados da API
     if (!currentModelName || !modelData[currentModelName]) {
-        // Se o modelo não for encontrado, exibe a mensagem de erro
+        // Se cair aqui, significa que a API não retornou dados para este modelo,
+        // ou a reconstrução falhou.
         const container = document.querySelector('.product-detail .container');
         if (container) {
-            container.innerHTML = '<h2>Modelo de iPhone não encontrado.</h2><a href="index.html">Voltar para a lista de modelos</a>';
+            container.innerHTML = `<h2>Modelo ${currentModelName || 'não especificado'} não encontrado.</h2>
+                                   <p>Verifique se o servidor retornou dados para este produto.</p>
+                                   <a href="index.html" class="btn-secondary">Voltar para a lista de modelos</a>`;
         }
         return;
     }
