@@ -3,7 +3,7 @@ const API_URL = 'http://localhost:3000/api';
 
 // Chave pública do Mercado Pago (Substitua pela sua chave pública real)
 // ATENÇÃO: Em um ambiente de produção, esta chave deve ser carregada de forma segura.
-const MP_PUBLIC_KEY = "TEST-0c1254d5-ab9a-4659-a0a9-a27c9afa39f1"; 
+const MP_PUBLIC_KEY = ""; 
 
 // Variáveis globais para o Mercado Pago
 let mp = null;
