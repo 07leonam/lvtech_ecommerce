@@ -1,0 +1,22 @@
+# Arquivos gerados pelo Node
+/node_modules
+/npm-debug.log
+/yarn-debug.log
+/yarn-error.log
+/package-lock.json
+
+# Variáveis de Ambiente (CRÍTICO)
+.env
+.env.local
+
+# Arquivos de Uploads (grandes e específicos do ambiente local)
+/backend/uploads/
+
+# Arquivos de build/dist (se você tiver)
+/dist
+/build
+
+# Arquivos específicos do MySQL Workbench
+*.wbc
+*.wbp
+*.wbs
