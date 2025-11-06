@@ -9,14 +9,12 @@
 .env
 .env.local
 
-# Arquivos de Uploads (grandes e específicos do ambiente local)
 /backend/uploads/
 
-# Arquivos de build/dist (se você tiver)
 /dist
 /build
 
-# Arquivos específicos do MySQL Workbench
+
 *.wbc
 *.wbp
 *.wbs
