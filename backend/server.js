@@ -441,8 +441,6 @@ app.post("/api/checkout/preference", async (req, res) => {
             items: mpItems,
             back_urls: {
                 success: "http://localhost:3000/checkout.html?status=success",
-                failure: "http://localhost:3000/checkout.html?status=failure",
-                pending: "http://localhost:3000/checkout.html?status=pending",
             },
             auto_return: "approved",
         };
@@ -456,7 +454,8 @@ app.post("/api/checkout/preference", async (req, res) => {
 
     } catch (error) {
         console.error("Erro ao criar preferência de pagamento:", error);
-        res.status(500).send("Erro ao criar preferência de pagamento.");
+        const errorMessage = error.message || "Erro desconhecido ao criar preferência de pagamento.";
+        res.status(500).send(`Erro ao criar preferência de pagamento: ${errorMessage}`);
     }
 });
 
