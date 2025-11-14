@@ -9,11 +9,12 @@ const path = require("path");
 const fs = require("fs");
 const config = require("./config");
 const { MercadoPagoConfig, Preference } = require("mercadopago");
+require("dotenv").config();
 
 const app = express();
-// CORREÇÃO: Removido o '.env' duplicado para acessar a variável de ambiente corretamente
 const PORT = process.env.PORT || 3000; 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretjwtkey";
+
 
 // Configuração do banco de dados
 const pool = mysql.createPool({
@@ -39,33 +40,8 @@ app.use(
     })
 );
 
-// Helper para obter o nome da pasta (Ex: '13_branco')
-const getFolderNameFromProductName = (productName) => {
-    const match = productName.match(/iPhone\s\d+\s?(e|\sPro Max|\sPro)?/); 
-    if (!match) return null; 
-
-    const modelName = match[0].trim();
-    
-    let color = 'Cor Desconhecida';
-    if (productName.includes('Ultramarino')) color = 'Ultramarino';
-    else if (productName.includes('Laranja')) color = 'Laranja';
-    else if (productName.includes('Branco')) color = 'Branco';
-    else if (productName.includes('Preto')) color = 'Preto';
-    
-    const modelVersionPart = modelName.replace('iPhone ', '').trim();
-    const folderModelPart = modelVersionPart.toLowerCase().replace(/\s/g, '_');
-    const folderColorPart = color.toLowerCase();
-
-    let imageFolderName = `${folderModelPart}_${folderColorPart}`;
-
-    if ((folderModelPart.includes('pro') || folderModelPart.includes('max')) && (folderColorPart === 'preto' || folderColorPart === 'branco' || folderColorPart === 'cor desconhecida')) {
-        if (folderColorPart === 'preto' || folderColorPart === 'branco') {
-           imageFolderName = folderModelPart; 
-        }
-    }
-    
-    return imageFolderName;
-};
+// Rota de arquivos estáticos para /uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Configuração do Multer para upload de imagens
 const storage = multer.diskStorage({
@@ -149,26 +125,20 @@ app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultipl
     const { nome, descricao, preco, estoque } = req.body;
     const files = req.files || [];
 
-    // 1. Determina a pasta de destino
-    const imageFolderName = getFolderNameFromProductName(nome);
-    if (!imageFolderName) {
-        files.forEach(file => fs.existsSync(file.path) && fs.unlinkSync(file.path));
-        return res.status(400).send("Erro: Nome do produto inválido para criar pasta.");
-    }
-    
-    const finalDir = path.join(__dirname, "uploads", imageFolderName);
-
-    try {
-        // 2. Inserir o produto
+        try {
+        // 1. Inserir o produto para obter o ID
         const [result] = await pool.execute(
             "INSERT INTO produtos (nome, descricao, preco, estoque) VALUES (?, ?, ?, ?)",
             [nome, descricao, preco, estoque]
         );
         const produtoId = result.insertId;
+        
+        // 2. Determina a pasta de destino usando o ID
+        const finalDir = path.join(__dirname, "uploads", String(produtoId));
 
         // 3. Mover arquivos e atualizar o DB
         if (files.length > 0) {
-            // Cria a pasta final (Ex: 13_branco) se ela não existir
+            // Cria a pasta final (Ex: 1) se ela não existir
             if (!fs.existsSync(finalDir)) {
                 fs.mkdirSync(finalDir, { recursive: true });
             }
@@ -177,8 +147,8 @@ app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultipl
                 const file = files[i];
                 const oldPath = file.path; 
                 
-                // Caminho final para o DB (Ex: 13_branco/imagens-12345.webp)
-                const dbPath = path.join(imageFolderName, file.filename); 
+                // Caminho final para o DB (Ex: 1/imagens-12345.webp)
+                const dbPath = path.join(String(produtoId), file.filename); 
                 const newPath = path.join(finalDir, file.filename);
                 
                 // CRÍTICO: Move o arquivo da raiz 'uploads' para a subpasta correta
@@ -195,8 +165,10 @@ app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultipl
     } catch (error) {
         // Tratamento de erro: tenta excluir arquivos movidos em caso de falha no DB
         if (files.length > 0) {
+            // Se o produtoId foi gerado, tentamos limpar a pasta. Caso contrário, apenas limpamos os temporários.
+            const tempDir = path.join(__dirname, "uploads");
             files.forEach(file => {
-                const finalFilePath = path.join(finalDir, file.filename);
+                const finalFilePath = path.join(tempDir, file.filename);
                 if (fs.existsSync(finalFilePath)) fs.unlinkSync(finalFilePath);
             });
         }
@@ -213,9 +185,8 @@ app.put("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, uploadMult
     const { nome, descricao, preco, estoque } = req.body;
     const files = req.files || [];
     
-    // 1. Determina a pasta de destino
-    const imageFolderName = getFolderNameFromProductName(nome);
-    const finalDir = path.join(__dirname, "uploads", imageFolderName || 'outros'); // 'outros' fallback
+        // 1. Determina a pasta de destino usando o ID
+    const finalDir = path.join(__dirname, "uploads", id);
 
     try {
         // 2. Atualizar o produto
@@ -234,7 +205,8 @@ app.put("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, uploadMult
                 const file = files[i];
                 const oldPath = file.path; 
                 
-                const dbPath = path.join(imageFolderName || 'outros', file.filename);
+                // Caminho final para o DB (Ex: 1/imagens-12345.webp)
+                const dbPath = path.join(id, file.filename);
                 const newPath = path.join(finalDir, file.filename);
                 
                 fs.renameSync(oldPath, newPath);
@@ -251,8 +223,9 @@ app.put("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, uploadMult
     } catch (error) {
         // Tratamento de erro
         if (files.length > 0) {
+            const tempDir = path.join(__dirname, "uploads");
             files.forEach(file => {
-                const finalFilePath = path.join(finalDir, file.filename);
+                const finalFilePath = path.join(tempDir, file.filename);
                 if (fs.existsSync(finalFilePath)) fs.unlinkSync(finalFilePath);
             });
         }
@@ -267,24 +240,14 @@ app.delete("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, async (
     let imageFolderName = null;
     
     try {
-        // 1. Obter o nome do produto ANTES de deletar
-        const [produtos] = await pool.execute("SELECT nome FROM produtos WHERE id = ?", [id]);
-        const nomeProduto = produtos[0]?.nome;
+                // 1. Determinar o nome da pasta (agora é o ID)
+        const productDir = path.join(__dirname, "uploads", id);
 
-        if (nomeProduto) {
-            // 2. Determinar o nome da pasta (Ex: 13_branco)
-            imageFolderName = getFolderNameFromProductName(nomeProduto);
-            
-            if (imageFolderName) {
-                const productDir = path.join(__dirname, "uploads", imageFolderName);
-
-                // 3. Excluir a pasta de arquivos se ela existir (fs.rmSync é mais robusto para pastas)
-                if (fs.existsSync(productDir)) {
-                    // recursive: true para deletar arquivos e subpastas. force: true para ignorar erros se arquivos não existirem.
-                    fs.rmSync(productDir, { recursive: true, force: true });
-                    console.log(`Pasta excluída: ${productDir}`);
-                }
-            }
+        // 2. Excluir a pasta de arquivos se ela existir
+        if (fs.existsSync(productDir)) {
+            // recursive: true para deletar arquivos e subpastas. force: true para ignorar erros se arquivos não existirem.
+            fs.rmSync(productDir, { recursive: true, force: true });
+            console.log(`Pasta excluída: ${productDir}`);
         }
         
         // 4. Excluir entradas no banco de dados
@@ -300,31 +263,20 @@ app.delete("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, async (
 });
 
 // ----------------------- ROTAS DE PRODUTOS (PÚBLICO) -----------------------
-app.get("/api/produtos/:modelo/imagens", async (req, res) => {
-    const { modelo } = req.params; 
-    const decodedModelo = decodeURIComponent(modelo);
+// ROTA GET: Obter imagens de um produto pelo ID
+app.get("/api/produtos/:id/imagens", async (req, res) => {
+    const { id } = req.params; 
     
     try {
-        const [produtos] = await pool.execute(
-            "SELECT id FROM produtos WHERE nome LIKE ?", 
-            [`%${decodedModelo.replace(/\s/g, '%')}%`]
-        );
-
-        if (produtos.length === 0) {
-            return res.json([]);
-        }
-        
-        const produtoId = produtos[0].id;
-
         const [imagens] = await pool.execute(
             "SELECT caminho FROM produto_imagens WHERE produto_id = ? ORDER BY ordem ASC",
-            [produtoId]
+            [id]
         );
         
         res.json(imagens.map(img => img.caminho));
         
     } catch (error) {
-        console.error("Erro ao listar imagens:", error);
+        console.error("Erro ao buscar imagens:", error);
         res.status(500).send("Erro no servidor.");
     }
 });
@@ -448,7 +400,14 @@ app.get("/api/carrinho", async (req, res) => {
 // ----------------------- ROTAS DE CHECKOUT (MERCADO PAGO) -----------------------
 
 // Inicialização do Mercado Pago
-const client = new MercadoPagoConfig({ accessToken: config.MP_ACCESS_TOKEN });
+const client = new MercadoPagoConfig({
+     accessToken: process.env.MP_ACCESS_TOKEN,
+     options: {
+        timeout: 5000,
+     }
+    
+    });
+
 const preference = new Preference(client);
 
 app.post("/api/checkout/preference", async (req, res) => {

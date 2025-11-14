@@ -1,46 +1,18 @@
-// Helper para converter o nome do produto para o formato da pasta (ex: '15_branco')
-const getFolderNameFromProductName = (productName) => {
-    // Regex para capturar QUALQUER modelo iPhone numérico, priorizando Max/Pro
-    const match = productName.match(/iPhone\s\d+\s?(e|\sPro Max|\sPro)?/);
-    if (!match) return null; 
+// index_logic.js
 
-    const modelName = match[0].trim();
-    
-    let color = 'Cor Desconhecida';
-    if (productName.includes('Ultramarino')) color = 'Ultramarino';
-    else if (productName.includes('Laranja')) color = 'Laranja';
-    else if (productName.includes('Branco')) color = 'Branco';
-    else if (productName.includes('Preto')) color = 'Preto';
-    
-    const modelVersionPart = modelName.replace('iPhone ', '').trim();
-    const folderModelPart = modelVersionPart.toLowerCase().replace(/\s/g, '_');
-    const folderColorPart = color.toLowerCase();
 
-    let imageFolderName = `${folderModelPart}_${folderColorPart}`;
-
-    // Regra de Exceção para Pro/Pro Max (onde a cor padrão não está no nome da pasta)
-    if ((folderModelPart.includes('pro') || folderModelPart.includes('max')) && (folderColorPart === 'preto' || folderColorPart === 'branco' || folderColorPart === 'cor desconhecida')) {
-        if (folderColorPart === 'preto' || folderColorPart === 'branco') {
-           imageFolderName = folderModelPart; 
-        }
-    }
-    
-    return imageFolderName;
-};
-
-// Helper para extrair apenas o nome do arquivo, ignorando o caminho da pasta
-const getFilename = (path) => {
-    if (!path) return null;
-    const parts = path.split('/');
-    let filename = parts[parts.length - 1];
-    const finalFilenameParts = filename.split('\\').pop(); 
-    return finalFilenameParts;
-};
-
-// Helper para formatar o preço (reutilizado do model_logic.js)
+const API_BASE_URL = API_URL.replace('/api', '');
+// Helper para formatar o preço
 const formatPrice = (price) => {
     return `R$ ${parseFloat(price).toFixed(2).replace('.', ',')}`;
 };
+
+// A função getFolderNameFromProductName não é mais necessária, pois usaremos o ID do produto.
+// Deixando um placeholder para evitar erros de referência, mas a lógica será alterada abaixo.
+const getFolderNameFromProductName = (productName) => {
+    return "placeholder";
+};
+
 
 async function loadIndexModels() {
     const modelsListDiv = document.getElementById('models-list');
@@ -55,18 +27,18 @@ async function loadIndexModels() {
             return;
         }
 
-        // 1. Agrupa os produtos por nome do modelo (ex: 'iPhone 15')
+        const modelRegex = /iPhone\s\d+\s?(Pro Max|Pro|e)?/i; 
+        
+        // 1. Agrupamento
         const modelsMap = allProducts.reduce((acc, product) => {
-            const match = product.nome.match(/iPhone\s\d+\s?(e|\sPro Max|\sPro)?/); 
+            const match = product.nome.match(modelRegex); 
             if (!match) return acc;
 
             const modelName = match[0].trim();
             
-            // Apenas guarda o primeiro produto encontrado para este modelo (ele terá a primeira imagem)
             if (!acc[modelName]) {
                 acc[modelName] = product;
             } else {
-                // Atualiza o preço se encontrar um mais baixo (opcional)
                 if (parseFloat(product.preco) < parseFloat(acc[modelName].preco)) {
                     acc[modelName].preco = product.preco;
                 }
@@ -74,27 +46,28 @@ async function loadIndexModels() {
             return acc;
         }, {});
         
-        modelsListDiv.innerHTML = ''; // Limpa o conteúdo
+        modelsListDiv.innerHTML = ''; 
 
         // 2. Cria os cards dinamicamente
         Object.values(modelsMap).forEach(product => {
-            const modelNameMatch = product.nome.match(/iPhone\s\d+\s?(e|\sPro Max|\sPro)?/); 
+            const modelNameMatch = product.nome.match(modelRegex); 
             const modelName = modelNameMatch ? modelNameMatch[0].trim() : 'Modelo Desconhecido';
-
-            // GERAÇÃO DO PARÂMETRO DA URL
-            // Ex: 'iPhone 17 Pro Max' -> 'iphone17promax'
             const pageParam = modelName.toLowerCase().replace(/\s/g, ''); 
             
-            // 3. Montar a URL da imagem usando a lógica de caminhos
-            const imageFolderName = getFolderNameFromProductName(product.nome);
-            const filename = product.imagem ? getFilename(product.imagem) : null;
+                        // --- NOVA MONTAGEM DA URL USANDO ID DO PRODUTO ---
+            const dbImagePath = product.imagem; 
             
             let imageUrl = 'https://via.placeholder.com/220/0A0A0A/B8860B?text=Sem+Imagem';
-            
-            if (filename && imageFolderName) {
-                // Monta a URL FINAL CORRETA
-                imageUrl = `${API_URL.replace('/api', '')}/uploads/${imageFolderName}/${filename}`;
+
+            if (dbImagePath) {
+                // O campo 'imagem' no DB agora deve conter o caminho completo (ex: 1/1.webp)
+                // O produto retornado aqui é o produto com o menor preço, que tem um ID.
+                const imagePath = dbImagePath; // Assumindo que dbImagePath já é o caminho completo (ex: 1/1.webp)
+                
+                // Monta a URL FINAL: /uploads/{id_produto}/{nome_arquivo}
+                imageUrl = `${API_BASE_URL}/uploads/${imagePath}`; 
             }
+            // ------------------------------------
 
             // 4. Cria o card HTML
             const cardHtml = `

@@ -1,10 +1,9 @@
 
 // Função auxiliar para extrair apenas o nome do arquivo, ignorando o caminho da pasta
+// Esta função não é mais necessária, pois o backend retorna o caminho completo.
+// Deixando o corpo vazio para evitar erros de referência, caso ainda seja chamada.
 const getFilename = (path) => {
-    const parts = path.split('/');
-    let filename = parts[parts.length - 1];
-    const finalFilenameParts = filename.split('\\').pop(); 
-    return finalFilenameParts;
+    return path;
 };
 
 // Mapeamento de modelos para cores e armazenamentos (será carregado do backend)
@@ -49,19 +48,7 @@ async function fetchAndGroupProducts() {
             else if (product.nome.includes('Branco')) color = 'Branco';
             else if (product.nome.includes('Preto')) color = 'Preto';
             
-            // CÁLCULO PARA imageFolderName
-            const modelVersionPart = modelName.replace('iPhone ', '').trim();
-            const folderModelPart = modelVersionPart.toLowerCase().replace(/\s/g, '_');
-            const folderColorPart = color.toLowerCase();
-
-            let imageFolderName = `${folderModelPart}_${folderColorPart}`;
-
-            // Regra de Exceção para pastas sem o nome da cor (modelos Pro/Pro Max Preto/Branco)
-            if ((folderModelPart.includes('pro') || folderModelPart.includes('max')) && (folderColorPart === 'preto' || folderColorPart === 'branco' || folderColorPart === 'cor desconhecida')) {
-                if (folderColorPart === 'preto' || folderColorPart === 'branco') {
-                   imageFolderName = folderModelPart; 
-                }
-            }
+            // O cálculo de imageFolderName não é mais necessário, pois usaremos o ID do produto.
             
             // Extrai o armazenamento
             const storageMatch = product.nome.match(/\d+(GB|TB)/);
@@ -79,7 +66,7 @@ async function fetchAndGroupProducts() {
                 id: product.id,
                 preco: product.preco,
                 estoque: product.estoque,
-                imageFolderName: imageFolderName,
+                // imageFolderName não é mais necessário, usaremos product.id
                 nome: product.nome
             };
             acc[modelName].storages.add(storage);
@@ -172,7 +159,7 @@ function renderOptions(modelName) {
 }
 
 // Função para buscar e renderizar a galeria de imagens
-async function fetchAndRenderGallery(imageFolderName) {
+async function fetchAndRenderGallery(productId) {
     const galleryDiv = document.getElementById('thumbnail-gallery');
     const carouselDiv = document.getElementById('image-carousel');
     
@@ -182,10 +169,7 @@ async function fetchAndRenderGallery(imageFolderName) {
     currentImagePaths = [];
 
     try {
-        const folderName = imageFolderName;
-        const encodedFolderName = encodeURIComponent(folderName);
-        
-        const response = await fetch(`${API_URL}/produtos/${encodedFolderName}/imagens`);
+        const response = await fetch(`${API_URL}/produtos/${productId}/imagens`);
         const imagePaths = await response.json();
         currentImagePaths = imagePaths;
 
@@ -193,20 +177,20 @@ async function fetchAndRenderGallery(imageFolderName) {
             
             // 1. Renderiza as imagens no carrossel
             imagePaths.forEach(imagePath => {
-                const filename = getFilename(imagePath);
-                const fullPath = `${API_URL.replace('/api', '')}/uploads/${imageFolderName}/${filename}`;
+                // imagePath já é o caminho completo relativo a /uploads (ex: 1/1.webp)
+                const fullPath = `${API_URL.replace('/api', '')}/uploads/${imagePath}`;
                 
                 const img = document.createElement('img');
                 img.src = fullPath;
-                img.alt = folderName;
+                img.alt = `Produto ${productId}`;
                 img.classList.add('carousel-image');
                 carouselDiv.appendChild(img);
             });
 
-            // 2. Renderiza as miniaturas (Também corrigida com 'filename')
+            // 2. Renderiza as miniaturas
             imagePaths.forEach((imagePath, index) => {
-                const filename = getFilename(imagePath);
-                const fullPath = `${API_URL.replace('/api', '')}/uploads/${imageFolderName}/${filename}`;
+                // imagePath já é o caminho completo relativo a /uploads (ex: 1/1.webp)
+                const fullPath = `${API_URL.replace('/api', '')}/uploads/${imagePath}`;
 
                 const thumbnail = document.createElement('img');
                 thumbnail.src = fullPath;
@@ -238,15 +222,13 @@ async function fetchAndRenderGallery(imageFolderName) {
 function updateCarousel() {
     const carouselDiv = document.getElementById('image-carousel');
     const imageCount = carouselDiv.children.length;
-    
-    if (imageCount > 0) {
-        // CORREÇÃO CRÍTICA DO CARROSSEL: Recalcular largura total e deslocamento em pixels
-        carouselDiv.style.width = `${imageCount * 100}%`; 
-        const containerWidth = carouselDiv.parentElement.offsetWidth;
 
-        carouselDiv.style.transform = `translateX(-${currentImageIndex * containerWidth}px)`;
+    if (imageCount > 0) {
+        carouselDiv.style.width = `${imageCount * 100}%`;
+        carouselDiv.style.transform = `translateX(-${currentImageIndex * 100}%)`;
     }
 }
+
 
 // Função para atualizar a seleção da miniatura
 function updateThumbnails() {
@@ -291,7 +273,7 @@ function updateProductDetails() {
             productIdHidden.textContent = product.id;
             
             // Atualizar galeria de imagens
-            fetchAndRenderGallery(product.imageFolderName);
+            fetchAndRenderGallery(product.id);
 
             if (product.estoque > 0) {
                 addToCartBtn.disabled = false;

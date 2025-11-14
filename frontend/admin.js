@@ -129,16 +129,18 @@ document.getElementById('product-form').addEventListener('submit', async (e) => 
     const descricao = document.getElementById('product-descricao').value;
     const preco = document.getElementById('product-preco').value;
     const estoque = document.getElementById('product-estoque').value;
-    const imagemFile = document.getElementById('product-imagem').files[0];
+    const imagemFiles = document.getElementById('imagens').files;
     
     const formData = new FormData();
     formData.append('nome', nome);
     formData.append('descricao', descricao);
     formData.append('preco', preco);
     formData.append('estoque', estoque);
-    if (imagemFile) {
-        formData.append('imagens', imagemFile);
+    if (imagemFiles.length > 0) { 
+        for (let i = 0; i < imagemFiles.length; i++) {
+            formData.append('imagens', imagemFiles[i]);
     }
+}
     
     try {
         let response;
