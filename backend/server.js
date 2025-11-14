@@ -413,7 +413,8 @@ const preference = new Preference(client);
 app.post("/api/checkout/preference", async (req, res) => {
     const { items } = req.body; 
     
-    if (!config.MP_ACCESS_TOKEN || config.MP_ACCESS_TOKEN === "SEU_ACCESS_TOKEN_DO_MERCADO_PAGO_AQUI") {
+    if (!process.env.MP_ACCESS_TOKEN || process.env.MP_ACCESS_TOKEN === "SEU_ACCESS_TOKEN_DO_MERCADO_PAGO_AQUI") {
+        console.error("Erro: MP_ACCESS_TOKEN ausente ou inválido.");
         return res.status(500).send("Erro de configuração: Access Token do Mercado Pago ausente no backend.");
     }
 
@@ -448,7 +449,10 @@ app.post("/api/checkout/preference", async (req, res) => {
 
         const createdPreference = await preference.create({ body });
         
-        res.json({ preferenceId: createdPreference.id });
+        res.json({ 
+            preferenceId: createdPreference.id,
+            initPoint: createdPreference.init_point
+        });
 
     } catch (error) {
         console.error("Erro ao criar preferência de pagamento:", error);
