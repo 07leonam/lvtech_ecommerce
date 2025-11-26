@@ -411,51 +411,109 @@ const client = new MercadoPagoConfig({
 const preference = new Preference(client);
 
 app.post("/api/checkout/preference", async (req, res) => {
-    const { items } = req.body; 
-    
-    if (!process.env.MP_ACCESS_TOKEN || process.env.MP_ACCESS_TOKEN === "SEU_ACCESS_TOKEN_DO_MERCADO_PAGO_AQUI") {
-        console.error("Erro: MP_ACCESS_TOKEN ausente ou inválido.");
-        return res.status(500).send("Erro de configuração: Access Token do Mercado Pago ausente no backend.");
+    // 1. Verificação de Token
+    if (!process.env.MP_ACCESS_TOKEN) {
+        console.error("ERRO: MP_ACCESS_TOKEN não encontrado no .env");
+        return res.status(500).send("Erro de configuração de chaves.");
     }
 
-    if (!req.session.cart || req.session.cart.length === 0) return res.status(400).send("Carrinho vazio.");
+    // 2. Instancia o cliente DENTRO da rota
+    const client = new MercadoPagoConfig({ 
+        accessToken: process.env.MP_ACCESS_TOKEN,
+        options: { timeout: 5000 }
+    });
+    const preference = new Preference(client);
+
+    // 3. Verificação do Carrinho
+    if (!req.session.cart || req.session.cart.length === 0) {
+        return res.status(400).send("Carrinho vazio.");
+    }
 
     try {
+        // 4. Busca dados REAIS no banco
         const productIds = req.session.cart.map(item => item.produto_id);
+        
+        // Proteção contra array vazio no SQL
+        if (productIds.length === 0) return res.status(400).send("Carrinho sem IDs válidos.");
+
         const [products] = await pool.execute(
             `SELECT id, nome, preco FROM produtos WHERE id IN (${productIds.join(",")})`
         );
         
+        // 5. TRATAMENTO DE DADOS (Sanitização)
         const mpItems = req.session.cart.map(cartItem => {
             const product = products.find(p => p.id === cartItem.produto_id);
-            if (!product) throw new Error(`Produto ID ${cartItem.produto_id} não encontrado.`);
+            if (!product) return null;
             
-            return {
-                title: product.nome,
-                quantity: cartItem.quantidade,
-                unit_price: parseFloat(product.preco),
-            };
-        });
+            // Lógica de limpeza: Remove "R$", espaços e troca vírgula por ponto
+            let rawPrice = product.preco;
+            if (typeof rawPrice === 'string') {
+                rawPrice = rawPrice.replace("R$", "").trim().replace(",", ".");
+            }
 
+            const cleanPrice = Number(rawPrice);
+            const cleanQty = Number(cartItem.quantidade);
+
+            // Validação final: impede envio de NaN ou Zero
+            if (isNaN(cleanPrice) || cleanPrice <= 0 || isNaN(cleanQty) || cleanQty <= 0) {
+                console.error(`❌ Item inválido ignorado: ${product.nome} - Preço: ${rawPrice}`);
+                return null;
+            }
+
+            return {
+                id: String(product.id),
+                title: product.nome,
+                quantity: cleanQty,
+                unit_price: cleanPrice, // Número puro (ex: 50.50)
+                currency_id: 'BRL'
+            };
+        }).filter(item => item !== null);
+
+        if (mpItems.length === 0) {
+            return res.status(400).send("Nenhum item válido para processar (verifique os preços no banco).");
+        }
+
+        // 6. Montagem do Body
         const body = {
             items: mpItems,
             back_urls: {
                 success: "http://localhost:3000/checkout.html?status=success",
+                failure: "http://localhost:3000/checkout.html?status=failure", 
+                pending: "http://localhost:3000/checkout.html?status=pending",
             },
             auto_return: "approved",
+            statement_descriptor: "LVTECH",
+            binary_mode: true
         };
 
-        const createdPreference = await preference.create({ body });
-        
-        res.json({ 
-            preferenceId: createdPreference.id,
-            initPoint: createdPreference.init_point
-        });
+        console.log("📤 Tentativa 1 (Com auto_return):", JSON.stringify(body, null, 2));
+
+        // 7. Tentativa de Criação com FALLBACK
+        try {
+            const createdPreference = await preference.create({ body });
+            res.json({ 
+                preferenceId: createdPreference.id,
+                initPoint: createdPreference.init_point
+            });
+
+        } catch (mpError) {
+            console.warn("⚠️ Falha na Tentativa 1. Tentando sem auto_return...");
+            
+            // SE FALHAR (ex: erro de back_url), removemos o auto_return e tentamos de novo
+            delete body.auto_return;
+            
+            const retryPreference = await preference.create({ body });
+            console.log("✅ Sucesso na Tentativa 2 (Sem auto_return).");
+            
+            res.json({ 
+                preferenceId: retryPreference.id,
+                initPoint: retryPreference.init_point
+            });
+        }
 
     } catch (error) {
-        console.error("Erro ao criar preferência de pagamento:", error);
-        const errorMessage = error.message || "Erro desconhecido ao criar preferência de pagamento.";
-        res.status(500).send(`Erro ao criar preferência de pagamento: ${errorMessage}`);
+        console.error("❌ ERRO FATAL NO CHECKOUT:", error);
+        res.status(500).send(`Erro ao processar pagamento: ${error.message}`);
     }
 });
 
