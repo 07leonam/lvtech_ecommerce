@@ -50,7 +50,8 @@ const storage = multer.diskStorage({
         cb(null, path.join(__dirname, "uploads")); 
     },
     filename: (req, file, cb) => {
-        cb(null, file.fieldname + "-" + Date.now() + path.extname(file.originalname));
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
     },
 });
 const upload = multer({ storage: storage });
@@ -121,59 +122,61 @@ const uploadMultiple = upload.array("imagens", 6); // Campo esperado é "imagens
 
 // ROTA POST: Adicionar Produto (CORRIGIDA COM MOVIMENTAÇÃO DE ARQUIVOS)
 app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultiple, async (req, res) => {
-
     const { nome, descricao, preco, estoque } = req.body;
     const files = req.files || [];
 
-        try {
-        // 1. Inserir o produto para obter o ID
+    // Variável para guardar o ID caso precisemos desfazer tudo em caso de erro grave
+    let produtoIdCriado = null;
+
+    try {
+        // 1. Criar Produto no Banco
         const [result] = await pool.execute(
             "INSERT INTO produtos (nome, descricao, preco, estoque) VALUES (?, ?, ?, ?)",
             [nome, descricao, preco, estoque]
         );
         const produtoId = result.insertId;
-        
-        // 2. Determina a pasta de destino usando o ID
+        produtoIdCriado = produtoId;
+
+        // 2. Preparar pasta final
         const finalDir = path.join(__dirname, "uploads", String(produtoId));
+        if (!fs.existsSync(finalDir)) {
+            fs.mkdirSync(finalDir, { recursive: true });
+        }
 
-        // 3. Mover arquivos e atualizar o DB
+        // 3. Processar Imagens
         if (files.length > 0) {
-            // Cria a pasta final (Ex: 1) se ela não existir
-            if (!fs.existsSync(finalDir)) {
-                fs.mkdirSync(finalDir, { recursive: true });
-            }
-
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                const oldPath = file.path; 
-                
-                // Caminho final para o DB (Ex: 1/imagens-12345.webp)
-                const dbPath = path.join(String(produtoId), file.filename); 
+                const oldPath = file.path;
                 const newPath = path.join(finalDir, file.filename);
-                
-                // CRÍTICO: Move o arquivo da raiz 'uploads' para a subpasta correta
-                fs.renameSync(oldPath, newPath); 
+                // Caminho para o banco (usando barra normal /)
+                const dbPath = `${produtoId}/${file.filename}`;
 
-                await pool.execute(
-                    "INSERT INTO produto_imagens (produto_id, caminho, ordem) VALUES (?, ?, ?)",
-                    [produtoId, dbPath, i + 1]
-                );
+                try {
+                    // Tenta copiar. Se o arquivo não existir (erro do nome duplicado), vai cair no catch
+                    if (fs.existsSync(oldPath)) {
+                        fs.copyFileSync(oldPath, newPath);
+                        fs.unlinkSync(oldPath); // Apaga o temporário
+
+                        // Salva no Banco
+                        await pool.execute(
+                            "INSERT INTO produto_imagens (produto_id, caminho, ordem) VALUES (?, ?, ?)",
+                            [produtoId, dbPath, i + 1]
+                        );
+                    } else {
+                        console.warn(`Arquivo ignorado (não encontrado): ${oldPath}`);
+                    }
+                } catch (fileError) {
+                    console.error(`Erro ao processar imagem ${file.filename}:`, fileError);
+                }
             }
         }
 
-        res.status(201).send("Produto e imagens adicionados com sucesso!");
+        res.status(201).json({ message: "Produto salvo com sucesso!" });
+
     } catch (error) {
-        // Tratamento de erro: tenta excluir arquivos movidos em caso de falha no DB
-        if (files.length > 0) {
-            // Se o produtoId foi gerado, tentamos limpar a pasta. Caso contrário, apenas limpamos os temporários.
-            const tempDir = path.join(__dirname, "uploads");
-            files.forEach(file => {
-                const finalFilePath = path.join(tempDir, file.filename);
-                if (fs.existsSync(finalFilePath)) fs.unlinkSync(finalFilePath);
-            });
-        }
-        console.error("Erro ao adicionar produto:", error);
-        res.status(500).send("Erro no servidor.");
+        console.error("Erro CRÍTICO ao salvar produto:", error);
+        res.status(500).send("Erro ao salvar produto. Verifique o console.");
     }
 });
 
