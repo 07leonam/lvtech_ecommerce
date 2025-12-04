@@ -168,7 +168,10 @@ app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultipl
             [nome, descricao, preco, estoque, capacidades]
         );
         const produtoId = result.insertId;
-        produtoIdCriado = produtoId;
+        const baseUploads = path.join(__dirname, "uploads");
+        if (!fs.existsSync(baseUploads)) {
+            fs.mkdirSync(baseUploads, { recursive: true });
+        }
 
         const finalDir = path.join(__dirname, "uploads", String(produtoId));
         if (!fs.existsSync(finalDir)) {
