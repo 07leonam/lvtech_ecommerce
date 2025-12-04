@@ -49,7 +49,7 @@ import { useCartStore } from '@/stores/cart';
 const user = ref(null);
 const router = useRouter();
 const cartStore = useCartStore();
-const API_URL = 'http://https://lvtech-backend.onrender.com/api';
+const API_URL = 'https://lvtech-backend.onrender.com/api';
 
 onMounted(async () => {
   try {

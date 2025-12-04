@@ -47,7 +47,7 @@ import { useRouter } from 'vue-router'; // Importamos o router no script
 const produtos = ref([]);
 const loading = ref(true);
 const erro = ref(null);
-const API_URL = 'http://https://lvtech-backend.onrender.com'; 
+const API_URL = 'https://lvtech-backend.onrender.com'; 
 const router = useRouter(); // Instância do router
 
 onMounted(async () => {

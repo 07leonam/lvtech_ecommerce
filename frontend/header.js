@@ -1,4 +1,4 @@
-const AUTH_API_URL = 'http://https://lvtech-backend.onrender.com/api';
+const AUTH_API_URL = 'https://lvtech-backend.onrender.com/api';
 
 async function updateHeaderAuth() {
     // Procura o elemento com ID 'auth-link' no HTML

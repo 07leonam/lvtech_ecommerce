@@ -93,7 +93,7 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
-const API_URL = 'http://https://lvtech-backend.onrender.com/api';
+const API_URL = 'https://lvtech-backend.onrender.com/api';
 const produtos = ref([]);
 const loading = ref(false);
 const carregandoLista = ref(true);
@@ -196,7 +196,7 @@ function getUrlImagem(imgInput) {
   if (!imgInput) return '';
   const caminho = imgInput.caminho || imgInput;
   if (!caminho.startsWith('http')) {
-     return `http://https://lvtech-backend.onrender.com/uploads/${caminho.replace(/\\/g, '/')}`;
+     return `https://lvtech-backend.onrender.com/uploads/${caminho.replace(/\\/g, '/')}`;
   }
   return caminho;
 }
