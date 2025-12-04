@@ -13,6 +13,7 @@ const cors = require('cors');
 require("dotenv").config();
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000; 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretjwtkey";
 
@@ -96,14 +97,22 @@ app.post("/api/login", async (req, res) => {
     try {
         const [users] = await pool.execute("SELECT * FROM usuarios WHERE email = ?", [email]);
         const user = users[0];
+
         if (user && senha === user.senha) { 
             const { senha: _, ...userWithoutPass } = user; 
             const token = jwt.sign(userWithoutPass, JWT_SECRET, { expiresIn: '1h' });
+
+            // --- CORREÇÃO AQUI ---
             res.cookie('token', token, { 
                 httpOnly: true, 
-                secure: process.env.NODE_ENV === 'production', 
+                // Obrigatório ser true para funcionar no Render/Chrome com sameSite: 'none'
+                secure: true, 
+                // Obrigatório para permitir cookies entre domínios diferentes (Front x Back)
+                sameSite: 'none', 
                 maxAge: 3600000 
             }); 
+            // ---------------------
+
             return res.json({ message: "Login realizado com sucesso", user: userWithoutPass }); 
         } else {
             return res.status(401).send("Email ou senha inválidos.");

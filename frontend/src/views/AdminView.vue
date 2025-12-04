@@ -141,7 +141,9 @@ async function salvarProduto() {
   }
 
   try {
-    const config = { headers: { 'Content-Type': 'multipart/form-data' }, withCredentials: true };
+    const config = {
+      withCredentials: true 
+    };
     if (produtoEditando.value) {
       await axios.put(`${API_URL}/admin/produtos/${form.value.id}`, formData, config);
       exibirMensagem('Atualizado com sucesso!', 'success');
