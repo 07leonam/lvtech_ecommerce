@@ -23,6 +23,10 @@ const pool = mysql.createPool({
     user: config.DB_USER,
     password: config.DB_PASSWORD,
     database: config.DB_NAME,
+    port: config.DB_PORT || 3306, 
+    ssl: {                          
+        rejectUnauthorized: true
+    },
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
@@ -42,8 +46,11 @@ app.use(
 );
 
 app.use(cors({
-    origin: 'http://localhost:5173', // A porta onde o Vue está rodando
-    credentials: true,               // Permite que o cookie de login passe
+    origin: [
+        'http://localhost:5173',                 
+        'https://07leonam.github.io'           
+    ],
+    credentials: true, 
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
