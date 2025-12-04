@@ -41,7 +41,7 @@ async function fazerLogin() {
   erro.value = '';
 
   try {
-    const response = await axios.post('http://localhost:3000/api/login', 
+    const response = await axios.post('http://https://lvtech-backend.onrender.com/api/login', 
       { email: email.value, senha: senha.value },
       { withCredentials: true }
     );

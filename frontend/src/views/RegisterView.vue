@@ -56,7 +56,7 @@ async function fazerCadastro() {
 
   try {
     // Envia para a rota que você já criou no server.js
-    await axios.post('http://localhost:3000/api/register', {
+    await axios.post('http://https://lvtech-backend.onrender.com/api/register', {
       nome: form.value.nome,
       email: form.value.email,
       senha: form.value.senha

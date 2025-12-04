@@ -72,7 +72,7 @@ const form = ref({
 
 onMounted(async () => {
   try {
-    const res = await axios.get('http://localhost:3000/api/status', { withCredentials: true });
+    const res = await axios.get('http://https://lvtech-backend.onrender.com/api/status', { withCredentials: true });
     if (res.data.user) {
       form.value.nome = res.data.user.nome;
       form.value.email = res.data.user.email;
@@ -92,7 +92,7 @@ async function pagarComMercadoPago() {
   erro.value = '';
 
   try {
-    const response = await axios.post('http://localhost:3000/api/checkout/preference', {
+    const response = await axios.post('http://https://lvtech-backend.onrender.com/api/checkout/preference', {
       items: cartStore.cart,
       comprador: form.value 
     });

@@ -93,7 +93,7 @@ import { useCartStore } from '@/stores/cart';
 
 const route = useRoute();
 const cartStore = useCartStore();
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://https://lvtech-backend.onrender.com/api';
 
 const produto = ref(null);
 const loading = ref(true);
@@ -138,7 +138,7 @@ function getUrlImagem(imgInput) {
   const caminho = imgInput.caminho || imgInput;
   if (!caminho.startsWith('http')) {
      const limpo = caminho.replace(/\\/g, '/');
-     return `http://localhost:3000/uploads/${limpo}`;
+     return `http://https://lvtech-backend.onrender.com/uploads/${limpo}`;
   }
   return caminho;
 }
