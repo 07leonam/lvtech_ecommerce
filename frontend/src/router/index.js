@@ -23,7 +23,8 @@ const router = createRouter({
     {
       path: '/admin',
       name: 'admin',
-      component: AdminView,beforeEnter: (to, from, next) => {
+      component: AdminView,
+      beforeEnter: (to, from, next) => {
         next(); 
       }
     },
@@ -38,7 +39,7 @@ const router = createRouter({
       component: RegisterView
     },
     {
-      path: '/produto/:id', // :id é um parâmetro dinâmico
+      path: '/produto/:id',
       name: 'produto',
       component: ProductView
     },

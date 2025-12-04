@@ -49,9 +49,9 @@ async function fazerLogin() {
 if (response.status === 200) {
       const usuario = response.data.user; 
       if (usuario.tipo === 'admin') {
-         window.location.href = '/admin';
+         router.push('/admin'); 
       } else {
-         window.location.href = '/';
+         router.push('/');
       }
     }
   } catch (err) {
