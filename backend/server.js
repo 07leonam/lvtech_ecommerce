@@ -1,6 +1,5 @@
 const express = require("express");
 const mysql = require("mysql2/promise");
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
@@ -13,10 +12,46 @@ const cors = require('cors');
 require("dotenv").config();
 
 const app = express();
+
 app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 3000; 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretjwtkey";
 
+app.use(cors({
+    origin: [
+        'http://localhost:5173',                 
+        'https://07leonam.github.io'           
+    ],
+    credentials: true, 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Adicionado OPTIONS
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.options('*', cors());
+
+//MIDDLEWARES
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(
+    session({
+        secret: "supersecretcartsessionkey",
+        resave: false,
+        saveUninitialized: true,
+        cookie: { secure: false }, // Sessão do carrinho (não confundir com auth)
+    })
+);
+
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/admin')) {
+        console.log(`[DEBUG] Tentativa de acesso a: ${req.method} ${req.path}`);
+        console.log('[DEBUG] Cookies recebidos:', req.cookies);
+        console.log('[DEBUG] Token específico:', req.cookies.token ? 'Presente' : 'AUSENTE');
+    }
+    next();
+});
+// ----------------------------------
 
 // Configuração do banco de dados
 const pool = mysql.createPool({
@@ -33,36 +68,12 @@ const pool = mysql.createPool({
     queueLimit: 0,
 });
 
-// Middlewares
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-app.use(
-    session({
-        secret: "supersecretcartsessionkey",
-        resave: false,
-        saveUninitialized: true,
-        cookie: { secure: false },
-    })
-);
-
-app.use(cors({
-    origin: [
-        'http://localhost:5173',                 
-        'https://07leonam.github.io'           
-    ],
-    credentials: true, 
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
 // Rota de arquivos estáticos para /uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Configuração do Multer para upload de imagens
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        // Multer salva arquivos temporariamente na pasta raiz 'uploads'
         cb(null, path.join(__dirname, "uploads")); 
     },
     filename: (req, file, cb) => {
@@ -75,10 +86,16 @@ const upload = multer({ storage: storage });
 // Autenticação e autorização
 const authenticateToken = (req, res, next) => {
     const token = req.cookies.token;
-    if (!token) return res.sendStatus(401);
+    if (!token) {
+        console.log("❌ Acesso negado: Token não encontrado nos cookies.");
+        return res.sendStatus(401);
+    }
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
+        if (err) {
+            console.log("❌ Acesso negado: Token inválido ou expirado.");
+            return res.sendStatus(403);
+        }
         req.user = user;
         next();
     });
@@ -102,16 +119,12 @@ app.post("/api/login", async (req, res) => {
             const { senha: _, ...userWithoutPass } = user; 
             const token = jwt.sign(userWithoutPass, JWT_SECRET, { expiresIn: '1h' });
 
-            // --- CORREÇÃO AQUI ---
             res.cookie('token', token, { 
                 httpOnly: true, 
-                // Obrigatório ser true para funcionar no Render/Chrome com sameSite: 'none'
-                secure: true, 
-                // Obrigatório para permitir cookies entre domínios diferentes (Front x Back)
-                sameSite: 'none', 
+                secure: true, // OBRIGATÓRIO NO RENDER
+                sameSite: 'none', // OBRIGATÓRIO PARA FRONT EXTERNO
                 maxAge: 3600000 
             }); 
-            // ---------------------
 
             return res.json({ message: "Login realizado com sucesso", user: userWithoutPass }); 
         } else {
@@ -124,7 +137,12 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/logout", (req, res) => {
-    res.clearCookie('token');
+    // Ao fazer logout, precisamos limpar com as mesmas configurações que criamos
+    res.clearCookie('token', { 
+        httpOnly: true, 
+        secure: true, 
+        sameSite: 'none' 
+    });
     res.sendStatus(200);
 });
 
@@ -136,17 +154,15 @@ app.get("/api/status", authenticateToken, (req, res) => {
 
 
 // ----------------------- ROTAS DE PRODUTOS (ADMIN) -----------------------
-const uploadMultiple = upload.array("imagens", 6); // Campo esperado é "imagens"
+const uploadMultiple = upload.array("imagens", 6); 
 
 // ROTA POST: Adicionar Produto
 app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultiple, async (req, res) => {
-    // 1. Removemos 'cores' daqui, mantemos 'capacidades'
     const { nome, descricao, preco, estoque, capacidades } = req.body;
     const files = req.files || [];
     let produtoIdCriado = null;
 
     try {
-        // 2. Removemos a coluna 'cores' do INSERT
         const [result] = await pool.execute(
             "INSERT INTO produtos (nome, descricao, preco, estoque, capacidades) VALUES (?, ?, ?, ?, ?)",
             [nome, descricao, preco, estoque, capacidades]
@@ -154,7 +170,6 @@ app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultipl
         const produtoId = result.insertId;
         produtoIdCriado = produtoId;
 
-        // ... (o resto do código de criar pasta e salvar imagens continua igual) ...
         const finalDir = path.join(__dirname, "uploads", String(produtoId));
         if (!fs.existsSync(finalDir)) {
             fs.mkdirSync(finalDir, { recursive: true });
@@ -189,23 +204,19 @@ app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultipl
     }
 });
 
-
 // ROTA PUT: Atualizar Produto
 app.put("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, uploadMultiple, async (req, res) => {
     const { id } = req.params;
-    // Removemos 'cores' daqui também
     const { nome, descricao, preco, estoque, capacidades } = req.body;
     const files = req.files || [];
     const finalDir = path.join(__dirname, "uploads", id);
 
     try {
-        // Removemos 'cores' do UPDATE
         await pool.execute(
             "UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, capacidades = ? WHERE id = ?",
             [nome, descricao, preco, estoque, capacidades, id]
         );
 
-        // ... (o resto do código de mover imagens continua igual) ...
         if (files.length > 0) {
              if (!fs.existsSync(finalDir)) fs.mkdirSync(finalDir, { recursive: true });
 
@@ -231,20 +242,14 @@ app.put("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, uploadMult
 // ROTA DELETE
 app.delete("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, async (req, res) => {
     const { id } = req.params;
-    let imageFolderName = null;
-    
     try {
-                // 1. Determinar o nome da pasta (agora é o ID)
         const productDir = path.join(__dirname, "uploads", id);
 
-        // 2. Excluir a pasta de arquivos se ela existir
         if (fs.existsSync(productDir)) {
-            // recursive: true para deletar arquivos e subpastas. force: true para ignorar erros se arquivos não existirem.
             fs.rmSync(productDir, { recursive: true, force: true });
             console.log(`Pasta excluída: ${productDir}`);
         }
         
-        // 4. Excluir entradas no banco de dados
         await pool.execute("DELETE FROM produto_imagens WHERE produto_id = ?", [id]);
         await pool.execute("DELETE FROM produtos WHERE id = ?", [id]);
         
@@ -259,10 +264,9 @@ app.delete("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, async (
 // ----------------------- ROTAS DE PRODUTOS (PÚBLICO) -----------------------
 
 app.get("/api/produtos/:id/imagens", async (req, res) => {
-    const { id } = req.params; // Faltava definir o ID
+    const { id } = req.params; 
     
-    try { // Faltava abrir o TRY
-        // Precisamos buscar o produto antes, pois você usa '...produto' no retorno
+    try { 
         const [produtos] = await pool.execute("SELECT * FROM produtos WHERE id = ?", [id]);
         const produto = produtos[0];
 
@@ -390,7 +394,7 @@ app.get("/api/carrinho", async (req, res) => {
                 ...item,
                 nome: product?.nome || "Produto Desconhecido",
                 preco_unitario: product?.preco || 0,
-                imagem: firstImage, // PRIMEIRA imagem (ordem 1)
+                imagem: firstImage, 
             };
         });
 
@@ -403,18 +407,15 @@ app.get("/api/carrinho", async (req, res) => {
 
 // ----------------------- ROTAS DE CHECKOUT (MERCADO PAGO) -----------------------
 
-// Inicialização do Mercado Pago
 const client = new MercadoPagoConfig({
      accessToken: process.env.MP_ACCESS_TOKEN,
      options: {
         timeout: 5000,
      }
-    
     });
 
 const preference = new Preference(client);
 
-// ROTA MODIFICADA: Envia o nome detalhado (com GB) para o Mercado Pago
 app.post("/api/checkout/preference", async (req, res) => {
     const { items } = req.body;
 
@@ -423,8 +424,7 @@ app.post("/api/checkout/preference", async (req, res) => {
     }
 
     try {
-        // Busca dados REAIS no banco (para garantir o PREÇO correto)
-        const productIds = items.map(item => item.id); // O front manda como 'id'
+        const productIds = items.map(item => item.id); 
         
         if (productIds.length === 0) return res.status(400).send("Carrinho sem IDs válidos.");
 
@@ -433,18 +433,13 @@ app.post("/api/checkout/preference", async (req, res) => {
         );
         
         const mpItems = items.map(cartItem => {
-            // Acha o produto original no banco
             const product = products.find(p => p.id === cartItem.id);
             if (!product) return null;
             
-            // PREÇO: Vem do Banco (Segurança)
             let rawPrice = product.preco;
             if (typeof rawPrice === 'string') rawPrice = rawPrice.replace("R$", "").trim().replace(",", ".");
             const cleanPrice = Number(rawPrice);
 
-            // NOME: Montamos com o detalhe do carrinho (Ex: "iPhone 15 - 256GB")
-            // Se o carrinho mandou um nome completo (já com a variante), usamos ele.
-            // Se não, usamos o do banco + capacidade.
             let titleFinal = product.nome;
             if (cartItem.capacidade) {
                 titleFinal += ` - ${cartItem.capacidade}`;
@@ -452,24 +447,17 @@ app.post("/api/checkout/preference", async (req, res) => {
 
             return {
                 id: String(product.id),
-                title: titleFinal, // <--- Aqui vai o nome bonito pro comprovante
+                title: titleFinal, 
                 quantity: Number(cartItem.quantidade),
                 unit_price: cleanPrice,
                 currency_id: 'BRL'
             };
         }).filter(item => item !== null);
 
-        // ... Resto da configuração do MP continua igual ...
-        const client = new MercadoPagoConfig({ 
-            accessToken: process.env.MP_ACCESS_TOKEN,
-            options: { timeout: 5000 }
-        });
-        const preference = new Preference(client);
-
         const body = {
             items: mpItems,
             back_urls: {
-                success: "http://localhost:5173/checkout?status=success", // Porta do Vue!
+                success: "http://localhost:5173/checkout?status=success", 
                 failure: "http://localhost:5173/checkout?status=failure", 
                 pending: "http://localhost:5173/checkout?status=pending",
             },
@@ -492,13 +480,11 @@ app.post("/api/checkout/preference", async (req, res) => {
 app.post("/api/checkout", async (req, res) => {
     const { nome, email, endereco, forma_pagamento } = req.body;
     
-    // 1. Validação do Carrinho
     if (!req.session.cart || req.session.cart.length === 0) {
         return res.status(400).send("Carrinho vazio. Não é possível finalizar o pedido.");
     }
     
     try {
-
         const status_pagamento = "Pedido Recebido (Aguardando Confirmação)";
         const [result] = await pool.execute(
             "INSERT INTO pedidos (nome_cliente, email_cliente, endereco_entrega, forma_pagamento, status_pagamento, data_pedido) VALUES (?, ?, ?, ?, ?, NOW())",
@@ -506,24 +492,20 @@ app.post("/api/checkout", async (req, res) => {
         );
         const pedidoId = result.insertId;
         
-        // 4. Buscar Detalhes dos Produtos (Preço e Estoque)
         const productIds = req.session.cart.map(item => item.produto_id);
         const [products] = await pool.execute(
             `SELECT id, nome, preco, estoque FROM produtos WHERE id IN (${productIds.join(",")})`
         );
         
-        // 5. Inserir Itens do Pedido e Atualizar Estoque
         for (const cartItem of req.session.cart) {
             const product = products.find(p => p.id === cartItem.produto_id);
             if (!product) continue; 
             
-            // Salva o item no pedido
             await pool.execute(
                 "INSERT INTO pedido_itens (pedido_id, produto_id, quantidade, preco_unitario) VALUES (?, ?, ?, ?)",
                 [pedidoId, cartItem.produto_id, cartItem.quantidade, product.preco]
             );
             
-            // Deduz do estoque (Importante!)
             const novoEstoque = product.estoque - cartItem.quantidade;
             await pool.execute(
                 "UPDATE produtos SET estoque = ? WHERE id = ?",
@@ -531,7 +513,6 @@ app.post("/api/checkout", async (req, res) => {
             );
         }
         
-        // 6. Limpar o Carrinho
         req.session.cart = [];
         
         console.log(`✅ Pedido #${pedidoId} criado com sucesso! Status: ${status_pagamento}`);
@@ -543,7 +524,7 @@ app.post("/api/checkout", async (req, res) => {
     }
 });
 
-// ROTA DO WEBHOOK (Onde o Mercado Pago avisa sobre atualizações)
+// ROTA DO WEBHOOK
 app.post("/api/webhook", async (req, res) => {
     const { action, data, type } = req.body;
     res.status(200).send("OK");
@@ -588,8 +569,6 @@ app.post("/api/webhook", async (req, res) => {
                     } else {
                         console.warn(`⚠️ Pedido #${externalReference} não encontrado no banco.`);
                     }
-                } else {
-                    console.warn("⚠️ Pagamento sem 'external_reference'. Não foi possível vincular a um pedido.");
                 }
             }
         }
@@ -598,7 +577,7 @@ app.post("/api/webhook", async (req, res) => {
     }
 });
 
-// ROTA POST: Cadastro de Clientes (Público)
+// ROTA POST: Cadastro de Clientes
 app.post("/api/register", async (req, res) => {
     const { nome, email, senha } = req.body;
 
@@ -608,7 +587,6 @@ app.post("/api/register", async (req, res) => {
             return res.status(400).json({ message: "Este e-mail já está cadastrado." });
         }
 
-        // --- MUDANÇA AQUI: Salva a senha direto (sem hash) ---
         await pool.execute(
             "INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, 'cliente')",
             [nome, email, senha] 
@@ -621,28 +599,22 @@ app.post("/api/register", async (req, res) => {
     }
 });
 
-// ROTA GET: Histórico de Pedidos do Cliente
+// ROTA GET: Histórico de Pedidos
 app.get("/api/meus-pedidos", authenticateToken, async (req, res) => {
-    // Pegamos o email do usuário logado através do token
     const emailUsuario = req.user.email; 
 
     try {
-        // Buscamos os pedidos onde o email do cliente é igual ao do usuário logado
         const [pedidos] = await pool.execute(
             "SELECT * FROM pedidos WHERE email_cliente = ? ORDER BY data_pedido DESC",
             [emailUsuario]
         );
 
-        // Opcional: Se quiser buscar os itens de cada pedido, teria que fazer um loop aqui.
-        // Por enquanto, vamos retornar apenas os dados principais do pedido (status, total, data).
-        
         res.json(pedidos);
     } catch (error) {
         console.error("Erro ao buscar meus pedidos:", error);
         res.status(500).send("Erro ao buscar histórico.");
     }
 });
-
 
 // ----------------------- SERVIR ARQUIVOS -----------------------
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
