@@ -11,6 +11,12 @@ const { MercadoPagoConfig, Preference } = require("mercadopago");
 const cors = require('cors');
 require("dotenv").config();
 
+const uploadsMainDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsMainDir)) {
+    fs.mkdirSync(uploadsMainDir, { recursive: true });
+    console.log("✅ Pasta 'uploads' raiz criada com sucesso.");
+}
+
 const app = express();
 
 app.set('trust proxy', 1);
