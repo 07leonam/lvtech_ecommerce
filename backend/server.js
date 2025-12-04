@@ -45,7 +45,12 @@ app.use(
         secret: "supersecretcartsessionkey",
         resave: false,
         saveUninitialized: true,
-        cookie: { secure: false }, // Sessão do carrinho (não confundir com auth)
+        cookie: { 
+            secure: true, 
+            sameSite: 'none', 
+            httpOnly: true,
+            maxAge: 1000 * 60 * 60 * 24 // 1 dia
+        },
     })
 );
 
