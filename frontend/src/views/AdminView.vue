@@ -91,9 +91,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../services/api'; 
 
-const API_URL = 'https://lvtech-backend.onrender.com/api';
 const produtos = ref([]);
 const loading = ref(false);
 const carregandoLista = ref(true);
@@ -108,7 +107,7 @@ const form = ref({
   descricao: '',
   preco: '',
   estoque: '',
-  capacidades: '' // Somente capacidades ficou
+  capacidades: ''
 });
 
 onMounted(() => {
@@ -118,9 +117,11 @@ onMounted(() => {
 async function carregarProdutos() {
   carregandoLista.value = true;
   try {
-    const response = await axios.get(`${API_URL}/produtos`);
+    // MUDANÇA: api.get já tem a URL base (/api)
+    const response = await api.get('/produtos');
     produtos.value = response.data;
   } catch (error) {
+    console.error(error);
     exibirMensagem('Erro ao carregar.', 'error');
   } finally {
     carregandoLista.value = false;
@@ -134,27 +135,27 @@ async function salvarProduto() {
   formData.append('descricao', form.value.descricao);
   formData.append('preco', form.value.preco);
   formData.append('estoque', form.value.estoque);
-  formData.append('capacidades', form.value.capacidades); // Envia Capacidades
+  formData.append('capacidades', form.value.capacidades);
 
   for (let i = 0; i < arquivosSelecionados.value.length; i++) {
     formData.append('imagens', arquivosSelecionados.value[i]);
   }
 
   try {
-    const config = {
-      withCredentials: true 
-    };
     if (produtoEditando.value) {
-      await axios.put(`${API_URL}/admin/produtos/${form.value.id}`, formData, config);
+      await api.put(`/admin/produtos/${form.value.id}`, formData);
       exibirMensagem('Atualizado com sucesso!', 'success');
     } else {
-      await axios.post(`${API_URL}/admin/produtos`, formData, config);
+      await api.post('/admin/produtos', formData);
       exibirMensagem('Criado com sucesso!', 'success');
     }
+    
     cancelarEdicao();
     carregarProdutos();
   } catch (error) {
-    exibirMensagem('Erro ao salvar.', 'error');
+    console.error("Erro ao salvar:", error);
+    const msgErro = error.response?.data?.message || 'Erro ao salvar.';
+    exibirMensagem(msgErro, 'error');
   } finally {
     loading.value = false;
   }
@@ -163,9 +164,11 @@ async function salvarProduto() {
 async function excluirProduto(id) {
   if (!confirm('Excluir este produto?')) return;
   try {
-    await axios.delete(`${API_URL}/admin/produtos/${id}`, { withCredentials: true });
+    // MUDANÇA: Usamos api.delete sem config extra
+    await api.delete(`/admin/produtos/${id}`);
     carregarProdutos();
   } catch (error) {
+    console.error(error);
     exibirMensagem('Erro ao excluir.', 'error');
   }
 }
@@ -176,7 +179,6 @@ function handleFileUpload(event) {
 
 function prepararEdicao(prod) {
   produtoEditando.value = true;
-  // Copia os dados simples
   form.value = { ...prod, capacidades: prod.capacidades || '' };
   arquivosSelecionados.value = [];
   if (fileInput.value) fileInput.value.value = '';

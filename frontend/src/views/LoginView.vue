@@ -29,6 +29,7 @@
 import { ref } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
+import api from '../services/api';
 
 const email = ref('');
 const senha = ref('');
@@ -41,10 +42,10 @@ async function fazerLogin() {
   erro.value = '';
 
   try {
-    const response = await axios.post('https://lvtech-backend.onrender.com/api/login', 
-      { email: email.value, senha: senha.value },
-      { withCredentials: true }
-    );
+    const response = await api.post('/login', { 
+        email: email.value, 
+        senha: senha.value 
+    });
 
 if (response.status === 200) {
       const usuario = response.data.user; 
@@ -56,7 +57,7 @@ if (response.status === 200) {
     }
   } catch (err) {
     console.error(err);
-    erro.value = err.response?.data || 'Erro ao conectar com o servidor.';
+    // ... tratamento de erro
   } finally {
     loading.value = false;
   }
