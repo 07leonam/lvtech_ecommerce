@@ -442,42 +442,72 @@ const client = new MercadoPagoConfig({
 
 const preference = new Preference(client);
 
+// ROTA: Criar Preferência de Pagamento (Mercado Pago) - DEBUG MODE
 app.post("/api/checkout/preference", async (req, res) => {
-    if (!process.env.MP_ACCESS_TOKEN) {
-        console.error("❌ ERRO: MP_ACCESS_TOKEN não configurado no .env");
-        return res.status(500).json({ error: "Erro de configuração no servidor." });
-    }
-
-    const { items } = req.body;
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({ error: "Carrinho vazio." });
-    }
-
     try {
-        console.log("💳 Iniciando checkout para:", items);
+        // 1. Validar Token
+        if (!process.env.MP_ACCESS_TOKEN) {
+            console.error("❌ ERRO: MP_ACCESS_TOKEN não configurado no .env");
+            return res.status(500).json({ error: "Erro de configuração no servidor." });
+        }
 
+        const { items } = req.body;
+        console.log("1️⃣ Itens recebidos do Frontend:", items);
+
+        // 2. Validar Carrinho
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ error: "Carrinho vazio." });
+        }
+
+        // 3. Buscar produtos no banco
         const productIds = items.map(item => item.id);
         const [products] = await pool.execute(
             `SELECT id, nome, preco FROM produtos WHERE id IN (${productIds.join(",")})`
         );
+        
+        console.log("2️⃣ Produtos achados no Banco:", products);
 
+        // 4. Montar itens para o Mercado Pago
         const mpItems = items.map(cartItem => {
-            const product = products.find(p => p.id === cartItem.id);
-            if (!product) return null;
+            // MUDANÇA CRÍTICA: Convertemos ambos para String para garantir a comparação
+            const product = products.find(p => String(p.id) === String(cartItem.id));
+            
+            if (!product) {
+                console.warn(`⚠️ Item do carrinho ID ${cartItem.id} não encontrado no banco.`);
+                return null;
+            }
 
-            const unitPrice = parseFloat(product.preco); 
+            // Tratamento de preço (remove R$ e troca vírgula por ponto se necessário)
+            let rawPrice = product.preco;
+            if (typeof rawPrice === 'string') {
+                rawPrice = rawPrice.replace("R$", "").trim().replace(",", ".");
+            }
+            const unitPrice = Number(rawPrice);
+
+            // Validação final de preço
+            if (isNaN(unitPrice) || unitPrice <= 0) {
+                 console.warn(`⚠️ Preço inválido para o produto ${product.nome}: ${unitPrice}`);
+                 return null;
+            }
             
             return {
                 id: String(product.id),
                 title: product.nome,
                 description: cartItem.capacidade ? `Capacidade: ${cartItem.capacidade}` : undefined,
-                quantity: Number(cartItem.quantidade), 
-                unit_price: Number(unitPrice),        
+                quantity: Number(cartItem.quantidade),
+                unit_price: unitPrice,
                 currency_id: 'BRL'
             };
         }).filter(item => item !== null);
 
+        console.log("3️⃣ Itens processados para enviar ao MP:", mpItems);
+
+        if (mpItems.length === 0) {
+            console.error("❌ Erro: Todos os itens foram filtrados. Verifique IDs e Preços.");
+            return res.status(400).json({ error: "Nenhum item válido para pagamento." });
+        }
+
+        // 5. Criar Preferência
         const body = {
             items: mpItems,
             back_urls: {
@@ -485,19 +515,22 @@ app.post("/api/checkout/preference", async (req, res) => {
                 failure: "https://seusite.onrender.com/",
                 pending: "https://seusite.onrender.com/"
             },
-            auto_return: "approved", 
+            auto_return: "approved",
             statement_descriptor: "LVTECH STORE",
         };
 
         const preference = new Preference(client);
         const result = await preference.create({ body });
 
-        console.log(`✅ Preferência criada! ID: ${result.id}`);
-        
+        console.log(`✅ Preferência criada! Link: ${result.init_point}`);
         res.json({ url: result.init_point });
 
     } catch (error) {
-        console.error("❌ Erro Mercado Pago:", error);
+        console.error("❌ Erro CRÍTICO no Checkout:", error);
+        // Tenta mostrar o erro detalhado do Mercado Pago se existir
+        if (error.cause) {
+             console.error("🔍 Causa do erro MP:", JSON.stringify(error.cause, null, 2));
+        }
         res.status(500).json({ error: "Erro ao conectar com Mercado Pago" });
     }
 });
