@@ -166,23 +166,26 @@ app.get("/api/status", authenticateToken, (req, res) => {
 
 // ----------------------- ROTAS DE PRODUTOS (ADMIN) -----------------------
 const uploadMultiple = upload.array("imagens", 6); 
-
-// ROTA POST: Adicionar Produto
 app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultiple, async (req, res) => {
+    console.log("📥 Iniciando criação de produto...");
+    
+    console.log("📦 Body recebido:", req.body);
+    console.log("📂 Arquivos recebidos (req.files):", req.files ? req.files.length : 0);
+
     const { nome, descricao, preco, estoque, capacidades } = req.body;
     const files = req.files || [];
-    let produtoIdCriado = null;
+    
+    let connection;
 
     try {
+        
         const [result] = await pool.execute(
             "INSERT INTO produtos (nome, descricao, preco, estoque, capacidades) VALUES (?, ?, ?, ?, ?)",
             [nome, descricao, preco, estoque, capacidades]
         );
+        
         const produtoId = result.insertId;
-        const baseUploads = path.join(__dirname, "uploads");
-        if (!fs.existsSync(baseUploads)) {
-            fs.mkdirSync(baseUploads, { recursive: true });
-        }
+        console.log(`✅ Produto criado com ID: ${produtoId}`);
 
         const finalDir = path.join(__dirname, "uploads", String(produtoId));
         if (!fs.existsSync(finalDir)) {
@@ -190,31 +193,40 @@ app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultipl
         }
 
         if (files.length > 0) {
+            console.log(`🔄 Processando ${files.length} imagens...`);
+
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const oldPath = file.path;
                 const newPath = path.join(finalDir, file.filename);
-                const dbPath = `${produtoId}/${file.filename}`;
-
+                const dbPath = `${produtoId}/${file.filename}`; 
+                console.log(`➡️ Movendo imagem ${i+1}: de [${oldPath}] para [${newPath}]`);
                 try {
-                    if (fs.existsSync(oldPath)) {
-                        fs.copyFileSync(oldPath, newPath);
-                        fs.unlinkSync(oldPath);
-                        await pool.execute(
-                            "INSERT INTO produto_imagens (produto_id, caminho, ordem) VALUES (?, ?, ?)",
-                            [produtoId, dbPath, i + 1]
-                        );
-                    }
-                } catch (fileError) {
-                    console.error(`Erro imagem:`, fileError);
+                    fs.renameSync(oldPath, newPath);
+                } catch (moveError) {
+                    console.warn(`⚠️ Falha ao mover com rename, tentando copy+unlink: ${moveError.message}`);
+                    fs.copyFileSync(oldPath, newPath);
+                    fs.unlinkSync(oldPath);
                 }
+
+                await pool.execute(
+                    "INSERT INTO produto_imagens (produto_id, caminho, ordem) VALUES (?, ?, ?)",
+                    [produtoId, dbPath, i + 1]
+                );
+                console.log(`💾 Imagem ${i+1} salva no banco: ${dbPath}`);
             }
+        } else {
+            console.warn("⚠️ Nenhuma imagem recebida no req.files!");
         }
-        res.status(201).json({ message: "Produto salvo com sucesso!" });
+
+        res.status(201).json({ message: "Produto salvo com sucesso!", id: produtoId });
 
     } catch (error) {
-        console.error("Erro CRÍTICO:", error);
-        res.status(500).send("Erro ao salvar produto.");
+        console.error("❌ Erro CRÍTICO ao salvar produto:", error);
+        res.status(500).json({ 
+            message: "Erro ao salvar produto.", 
+            error: error.message 
+        });
     }
 });
 

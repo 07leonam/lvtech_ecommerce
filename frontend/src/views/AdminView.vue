@@ -71,11 +71,11 @@
             <div class="admin-item-header">
                <img v-if="prod.imagem" :src="getUrlImagem(prod.imagem)" class="admin-item-image">
                <div class="admin-item-details">
-                  <h5>{{ prod.nome }}</h5>
-                  <p>R$ {{ Number(prod.preco).toFixed(2) }} | Estoque: {{ prod.estoque }}</p>
-                  <p style="font-size: 11px; color: #888" v-if="prod.capacidades">
-                    Opções: {{ prod.capacidades }}
-                  </p>
+                 <h5>{{ prod.nome }}</h5>
+                 <p>R$ {{ Number(prod.preco).toFixed(2) }} | Estoque: {{ prod.estoque }}</p>
+                 <p style="font-size: 11px; color: #888" v-if="prod.capacidades">
+                   Opções: {{ prod.capacidades }}
+                 </p>
                </div>
             </div>
             <div class="admin-item-actions">
@@ -117,11 +117,11 @@ onMounted(() => {
 async function carregarProdutos() {
   carregandoLista.value = true;
   try {
-    // MUDANÇA: api.get já tem a URL base (/api)
     const response = await api.get('/produtos');
+    console.log('📦 Produtos carregados da API:', response.data); // LOG AQUI
     produtos.value = response.data;
   } catch (error) {
-    console.error(error);
+    console.error("Erro no carregarProdutos:", error);
     exibirMensagem('Erro ao carregar.', 'error');
   } finally {
     carregandoLista.value = false;
@@ -130,6 +130,10 @@ async function carregarProdutos() {
 
 async function salvarProduto() {
   loading.value = true;
+  
+  // LOG PRELIMINAR DOS DADOS BRUTOS
+  console.log('📝 Dados do formulário (antes do FormData):', form.value);
+
   const formData = new FormData();
   formData.append('nome', form.value.nome);
   formData.append('descricao', form.value.descricao);
@@ -141,11 +145,19 @@ async function salvarProduto() {
     formData.append('imagens', arquivosSelecionados.value[i]);
   }
 
+  // LOG DO FORMDATA (O que realmente está indo para o servidor)
+  console.log('🚀 Enviando FormData:');
+  for (let pair of formData.entries()) {
+      console.log(pair[0] + ': ', pair[1]);
+  }
+
   try {
     if (produtoEditando.value) {
+      console.log(`Atualizando produto ID: ${form.value.id}`); // LOG AQUI
       await api.put(`/admin/produtos/${form.value.id}`, formData);
       exibirMensagem('Atualizado com sucesso!', 'success');
     } else {
+      console.log('Criando novo produto'); // LOG AQUI
       await api.post('/admin/produtos', formData);
       exibirMensagem('Criado com sucesso!', 'success');
     }
@@ -153,7 +165,7 @@ async function salvarProduto() {
     cancelarEdicao();
     carregarProdutos();
   } catch (error) {
-    console.error("Erro ao salvar:", error);
+    console.error("❌ Erro ao salvar:", error);
     const msgErro = error.response?.data?.message || 'Erro ao salvar.';
     exibirMensagem(msgErro, 'error');
   } finally {
@@ -164,7 +176,7 @@ async function salvarProduto() {
 async function excluirProduto(id) {
   if (!confirm('Excluir este produto?')) return;
   try {
-    // MUDANÇA: Usamos api.delete sem config extra
+    console.log('🗑️ Excluindo produto ID:', id); // LOG AQUI
     await api.delete(`/admin/produtos/${id}`);
     carregarProdutos();
   } catch (error) {
@@ -175,9 +187,11 @@ async function excluirProduto(id) {
 
 function handleFileUpload(event) {
   arquivosSelecionados.value = event.target.files;
+  console.log('📂 Arquivos selecionados:', arquivosSelecionados.value); // LOG AQUI
 }
 
 function prepararEdicao(prod) {
+  console.log('✏️ Editando produto:', prod); // LOG AQUI
   produtoEditando.value = true;
   form.value = { ...prod, capacidades: prod.capacidades || '' };
   arquivosSelecionados.value = [];
