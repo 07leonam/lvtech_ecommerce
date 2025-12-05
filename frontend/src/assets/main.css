@@ -532,13 +532,6 @@ nav a:hover, nav a.router-link-active {
 }
 .icon-truck { width: 18px; height: 18px; }
 
-/* Responsivo Mobile */
-@media (max-width: 768px) {
-    .product-detail-grid { grid-template-columns: 1fr; gap: 30px; }
-    .sticky-wrapper { position: static; }
-    .product-title { font-size: 32px; }
-}
-
 /* ========================================= */
 /* 6. ADMIN PANEL (AdminView.vue)           */
 /* ========================================= */
@@ -792,17 +785,110 @@ nav a:hover, nav a.router-link-active {
     margin-bottom: 20px;
 }
 
+/* ========================================= */
+/* 9. CHECKOUT (Checkout.vue) - NOVO!       */
+/* ========================================= */
 
+.checkout-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr; /* Formulário maior (2), Resumo menor (1) */
+    gap: 30px;
+    margin-top: 20px;
+}
+
+/* Grid Inteligente de Endereço (3 Colunas) */
+.address-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+/* Classes utilitárias do Grid */
+.address-grid .full-width {
+    grid-column: 1 / -1; /* Ocupa a largura total */
+}
+
+.address-grid .span-2 {
+    grid-column: span 2; /* Ocupa 2 colunas */
+}
+
+/* Spinner do CEP */
+.cep-wrapper {
+    position: relative;
+}
+
+.loading-cep {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    animation: spin 1s infinite linear;
+}
+
+/* Inputs bloqueados (Cidade/UF) */
+.input-readonly {
+    background-color: #f0f2f5;
+    color: #666;
+    cursor: not-allowed;
+    border-color: #e0e0e0;
+}
+
+/* Seção de Resumo Sticky */
+.summary-section {
+    height: fit-content;
+    position: sticky;
+    top: 90px;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed #eee;
+}
+
+.summary-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.btn-mp {
+    width: 100%;
+    margin-top: 10px;
+    background-color: #009EE3; /* Azul Oficial Mercado Pago (opcional) ou use o tema */
+    color: white;
+}
+.btn-mp:hover {
+    background-color: #007bb0;
+}
+
+@keyframes spin {
+    to { transform: translateY(-50%) rotate(360deg); }
+}
 
 /* ========================================= */
-/* 9. RESPONSIVIDADE                        */
+/* 10. RESPONSIVIDADE                       */
 /* ========================================= */
 
 @media (max-width: 768px) {
     .product-detail-grid, 
     .admin-grid, 
-    .cart-grid {
+    .cart-grid,
+    .checkout-grid { /* Adicionado Checkout ao Stack Mobile */
         grid-template-columns: 1fr;
+    }
+    
+    /* Endereço vira 1 coluna no mobile */
+    .address-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .address-grid .span-2 {
+        grid-column: span 1;
     }
 
     header .container {
@@ -816,10 +902,15 @@ nav a:hover, nav a.router-link-active {
         flex-wrap: wrap;
         justify-content: center;
     }
+    
+    .summary-section {
+        position: static; /* Remove sticky no mobile */
+        margin-top: 20px;
+    }
 }
 
 /* ========================================= */
-/* 10. WHATSAPP FLUTUANTE                   */
+/* 11. WHATSAPP FLUTUANTE                   */
 /* ========================================= */
 
 .whatsapp-float {

@@ -6,6 +6,7 @@
       <div class="card form-section">
         <h3>Seus Dados</h3>
         <form @submit.prevent="pagarComMercadoPago">
+          
           <div class="form-group">
             <label>Nome Completo</label>
             <input type="text" v-model="form.nome" required placeholder="Nome do recebedor">
@@ -14,11 +15,53 @@
             <label>E-mail</label>
             <input type="email" v-model="form.email" required placeholder="Para envio do comprovante">
           </div>
-          <div class="form-group">
-            <label>Endereço de Entrega</label>
-            <textarea v-model="form.endereco" required rows="3" placeholder="Rua, Número, Bairro, Cidade..."></textarea>
+
+          <div class="address-grid">
+            <div class="form-group full-width">
+              <label>CEP</label>
+              <div class="cep-wrapper">
+                <input 
+                  type="text" 
+                  v-model="enderecoForm.cep" 
+                  @blur="buscarCep" 
+                  placeholder="00000-000" 
+                  maxlength="9"
+                  :disabled="buscandoCep"
+                >
+                <span v-if="buscandoCep" class="loading-cep">⏳</span>
+              </div>
+            </div>
+
+            <div class="form-group span-2">
+              <label>Rua / Logradouro</label>
+              <input type="text" v-model="enderecoForm.rua" required placeholder="Av. Paulista">
+            </div>
+
+            <div class="form-group">
+              <label>Número</label>
+              <input type="text" ref="inputNumero" v-model="enderecoForm.numero" required placeholder="123">
+            </div>
+
+            <div class="form-group">
+              <label>Complemento</label>
+              <input type="text" v-model="enderecoForm.complemento" placeholder="Apto 101">
+            </div>
+
+            <div class="form-group span-2">
+              <label>Bairro</label>
+              <input type="text" v-model="enderecoForm.bairro" required placeholder="Centro">
+            </div>
+
+            <div class="form-group span-2">
+              <label>Cidade</label>
+              <input type="text" v-model="enderecoForm.cidade" required readonly class="input-readonly">
+            </div>
+
+            <div class="form-group">
+              <label>UF</label>
+              <input type="text" v-model="enderecoForm.estado" required readonly class="input-readonly">
+            </div>
           </div>
-          
           <div class="actions">
             <button type="submit" class="btn-primary btn-mp" :disabled="loading">
               {{ loading ? 'Processando...' : 'Pagar com Mercado Pago' }}
@@ -62,12 +105,23 @@ import api from '@/services/api';
 
 const cartStore = useCartStore();
 const loading = ref(false);
+const buscandoCep = ref(false);
 const erro = ref('');
+const inputNumero = ref(null); 
 
 const form = ref({
   nome: '',
-  email: '',
-  endereco: ''
+  email: ''
+});
+
+const enderecoForm = ref({
+  cep: '',
+  rua: '',
+  numero: '',
+  complemento: '',
+  bairro: '',
+  cidade: '',
+  estado: ''
 });
 
 onMounted(async () => {
@@ -81,19 +135,51 @@ onMounted(async () => {
   }
 });
 
+async function buscarCep() {
+  const cepLimpo = enderecoForm.value.cep.replace(/\D/g, '');
+  
+  if (cepLimpo.length === 8) {
+    buscandoCep.value = true;
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+      
+      if (!data.erro) {
+        enderecoForm.value.rua = data.logradouro;
+        enderecoForm.value.bairro = data.bairro;
+        enderecoForm.value.cidade = data.localidade;
+        enderecoForm.value.estado = data.uf;
+        
+        setTimeout(() => inputNumero.value?.focus(), 100);
+      } else {
+        alert("CEP não encontrado.");
+      }
+    } catch (error) {
+      console.error("Erro CEP:", error);
+    } finally {
+      buscandoCep.value = false;
+    }
+  }
+}
+
 async function pagarComMercadoPago() {
   if (cartStore.cart.length === 0) {
     alert('Seu carrinho está vazio.');
     return;
   }
 
-  if (!form.value.nome || !form.value.email || !form.value.endereco) {
-    alert('Por favor, preencha seus dados de entrega.');
+  if (!form.value.nome || !form.value.email) {
+    alert('Preencha nome e e-mail.');
+    return;
+  }
+  if (!enderecoForm.value.rua || !enderecoForm.value.numero || !enderecoForm.value.cidade) {
+    alert('Por favor, preencha o endereço completo.');
     return;
   }
 
   loading.value = true;
   erro.value = '';
+  const enderecoCompleto = `${enderecoForm.value.rua}, ${enderecoForm.value.numero} ${enderecoForm.value.complemento ? '- ' + enderecoForm.value.complemento : ''} - ${enderecoForm.value.bairro}, ${enderecoForm.value.cidade}/${enderecoForm.value.estado} - CEP: ${enderecoForm.value.cep}`;
   const itensFormatados = cartStore.cart.map(item => ({
       id: Number(item.produto_id || item.id), 
       quantidade: Number(item.quantidade),
@@ -102,9 +188,13 @@ async function pagarComMercadoPago() {
 
   try {
     console.log("Enviando para checkout:", itensFormatados);
+    
     const response = await api.post('/checkout/preference', {
       items: itensFormatados,
-      comprador: form.value 
+      comprador: {
+        ...form.value,
+        endereco: enderecoCompleto // Envia a string formatada
+      }
     });
 
     const { url } = response.data; 
