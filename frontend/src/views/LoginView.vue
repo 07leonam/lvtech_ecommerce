@@ -13,14 +13,14 @@
         <input type="password" v-model="senha" required placeholder="******">
       </div>
       
-      <button type="submit" :disabled="loading">
+      <button type="submit" class="btn-primary login-btn" :disabled="loading">
         {{ loading ? 'Entrando...' : 'Entrar' }}
       </button>
       
-    <div style="margin-top: 15px; text-align: center;">
+      <div class="login-feedback">
+        <p v-if="erro" class="alert error">{{ erro }}</p>
         <p>Ainda não tem conta? <router-link to="/cadastro">Cadastre-se aqui</router-link></p>
-    </div>
-      <p v-if="erro" class="error">{{ erro }}</p>
+      </div>
     </form>
   </div>
 </template>
