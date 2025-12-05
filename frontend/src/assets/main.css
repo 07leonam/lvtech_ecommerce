@@ -998,3 +998,96 @@ nav a:hover, nav a.router-link-active {
         height: 28px;
     }
 }
+
+/* ========================================= */
+/* 12. MEUS PEDIDOS (MeusPedidos.vue)       */
+/* ========================================= */
+
+.meus-pedidos-page {
+    padding-top: 40px;
+    padding-bottom: 60px;
+}
+
+.meus-pedidos-page h2 {
+    color: var(--color-primary);
+    margin-bottom: 5px;
+}
+
+.meus-pedidos-page .subtitle {
+    color: #888;
+    margin-bottom: 30px;
+    font-size: 1rem;
+}
+
+.pedidos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.pedido-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 1px solid var(--color-border);
+}
+
+.pedido-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+}
+
+.pedido-id {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-accent);
+}
+
+.pedido-status {
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.pedido-status.success {
+    background-color: var(--color-success);
+    color: white;
+}
+
+.pedido-status.warning {
+    background-color: var(--color-warning);
+    color: #333;
+}
+
+.pedido-status.danger {
+    background-color: var(--color-danger);
+    color: white;
+}
+
+.pedido-details p {
+    font-size: 0.95rem;
+    color: var(--color-text-dark);
+    margin-bottom: 5px;
+}
+
+.pedido-details strong {
+    font-weight: 700;
+    color: var(--color-accent);
+}
+
+.metodo-pagamento {
+    margin-top: 10px;
+    color: #aaa;
+}
+
+.btn-ver-detalhes {
+    margin-top: 15px;
+    padding: 8px 15px;
+    font-size: 0.85rem;
+}
