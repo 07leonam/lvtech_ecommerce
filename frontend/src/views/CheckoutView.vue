@@ -58,7 +58,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useCartStore } from '@/stores/cart';
-import axios from 'axios';
+import api from '@/services/api';
 
 const cartStore = useCartStore();
 const loading = ref(false);
@@ -72,13 +72,12 @@ const form = ref({
 
 onMounted(async () => {
   try {
-    const res = await axios.get('https://lvtech-backend.onrender.com/api/status', { withCredentials: true });
+    const res = await api.get('/status'); 
     if (res.data.user) {
       form.value.nome = res.data.user.nome;
       form.value.email = res.data.user.email;
     }
   } catch (e) {
-    // Usuário não logado
   }
 });
 
@@ -88,50 +87,39 @@ async function pagarComMercadoPago() {
     return;
   }
 
+  if (!form.value.nome || !form.value.email || !form.value.endereco) {
+    alert('Por favor, preencha seus dados de entrega.');
+    return;
+  }
+
   loading.value = true;
   erro.value = '';
+  const itensFormatados = cartStore.cart.map(item => ({
+      id: Number(item.produto_id || item.id), 
+      quantidade: Number(item.quantidade),
+      capacidade: item.capacidade || ''
+  }));
 
   try {
-    const response = await axios.post('https://lvtech-backend.onrender.com/api/checkout/preference', {
-      items: cartStore.cart,
+    console.log("Enviando para checkout:", itensFormatados);
+    const response = await api.post('/checkout/preference', {
+      items: itensFormatados,
       comprador: form.value 
     });
 
-    const { initPoint } = response.data;
+    const { url } = response.data; 
 
-    if (initPoint) {
-      window.location.href = initPoint;
+    if (url) {
+      window.location.href = url;
     } else {
       throw new Error('Link de pagamento não gerado.');
     }
 
   } catch (err) {
-    console.error(err);
+    console.error("Erro no checkout:", err);
     erro.value = 'Erro ao conectar com Mercado Pago. Tente novamente.';
+  } finally {
     loading.value = false;
   }
 }
 </script>
-
-<style scoped>
-.checkout-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px; margin-top: 20px; }
-.btn-mp { background-color: #009EE3; border: none; width: 100%; font-size: 1.1rem; }
-.btn-mp:hover { background-color: #007bbd; }
-
-.summary-item { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: flex-start; /* Alinha no topo caso tenha duas linhas */
-    margin-bottom: 15px; 
-    font-size: 0.95rem; 
-    color: #444; 
-    border-bottom: 1px dashed #eee;
-    padding-bottom: 10px;
-}
-
-.item-name { font-weight: 500; }
-.item-price { font-weight: 700; color: var(--color-primary); white-space: nowrap; }
-.total { display: flex; justify-content: space-between; font-size: 1.4rem; margin-top: 10px; color: var(--color-accent); }
-
-@media (max-width: 768px) { .checkout-grid { grid-template-columns: 1fr; } }
-</style>

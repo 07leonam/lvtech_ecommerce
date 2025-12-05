@@ -443,39 +443,37 @@ const client = new MercadoPagoConfig({
 const preference = new Preference(client);
 
 app.post("/api/checkout/preference", async (req, res) => {
+    if (!process.env.MP_ACCESS_TOKEN) {
+        console.error("❌ ERRO: MP_ACCESS_TOKEN não configurado no .env");
+        return res.status(500).json({ error: "Erro de configuração no servidor." });
+    }
+
     const { items } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-        return res.status(400).send("O carrinho está vazio ou inválido.");
+        return res.status(400).json({ error: "Carrinho vazio." });
     }
 
     try {
-        const productIds = items.map(item => item.id); 
-        
-        if (productIds.length === 0) return res.status(400).send("Carrinho sem IDs válidos.");
+        console.log("💳 Iniciando checkout para:", items);
 
+        const productIds = items.map(item => item.id);
         const [products] = await pool.execute(
             `SELECT id, nome, preco FROM produtos WHERE id IN (${productIds.join(",")})`
         );
-        
+
         const mpItems = items.map(cartItem => {
             const product = products.find(p => p.id === cartItem.id);
             if (!product) return null;
+
+            const unitPrice = parseFloat(product.preco); 
             
-            let rawPrice = product.preco;
-            if (typeof rawPrice === 'string') rawPrice = rawPrice.replace("R$", "").trim().replace(",", ".");
-            const cleanPrice = Number(rawPrice);
-
-            let titleFinal = product.nome;
-            if (cartItem.capacidade) {
-                titleFinal += ` - ${cartItem.capacidade}`;
-            }
-
             return {
                 id: String(product.id),
-                title: titleFinal, 
-                quantity: Number(cartItem.quantidade),
-                unit_price: cleanPrice,
+                title: product.nome,
+                description: cartItem.capacidade ? `Capacidade: ${cartItem.capacidade}` : undefined,
+                quantity: Number(cartItem.quantidade), 
+                unit_price: Number(unitPrice),        
                 currency_id: 'BRL'
             };
         }).filter(item => item !== null);
@@ -483,23 +481,24 @@ app.post("/api/checkout/preference", async (req, res) => {
         const body = {
             items: mpItems,
             back_urls: {
-                success: "http://localhost:5173/checkout?status=success", 
-                failure: "http://localhost:5173/checkout?status=failure", 
-                pending: "http://localhost:5173/checkout?status=pending",
+                success: "https://seusite.onrender.com/sucesso", 
+                failure: "https://seusite.onrender.com/",
+                pending: "https://seusite.onrender.com/"
             },
-            auto_return: "approved",
-            statement_descriptor: "LVTECH",
+            auto_return: "approved", 
+            statement_descriptor: "LVTECH STORE",
         };
 
-        const createdPreference = await preference.create({ body });
-        res.json({ 
-            preferenceId: createdPreference.id,
-            initPoint: createdPreference.init_point
-        });
+        const preference = new Preference(client);
+        const result = await preference.create({ body });
+
+        console.log(`✅ Preferência criada! ID: ${result.id}`);
+        
+        res.json({ url: result.init_point });
 
     } catch (error) {
-        console.error("Erro MP:", error);
-        res.status(500).send("Erro ao criar pagamento.");
+        console.error("❌ Erro Mercado Pago:", error);
+        res.status(500).json({ error: "Erro ao conectar com Mercado Pago" });
     }
 });
 
