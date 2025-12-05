@@ -52,7 +52,7 @@ if (response.status === 200) {
       if (usuario.tipo === 'admin') {
          router.push('/admin'); 
       } else {
-         router.push('/');
+         window.location.href = '/';
       }
     }
   } catch (err) {
