@@ -131,9 +131,6 @@ async function carregarProdutos() {
 async function salvarProduto() {
   loading.value = true;
   
-  // LOG PRELIMINAR DOS DADOS BRUTOS
-  console.log('📝 Dados do formulário (antes do FormData):', form.value);
-
   const formData = new FormData();
   formData.append('nome', form.value.nome);
   formData.append('descricao', form.value.descricao);
@@ -141,24 +138,29 @@ async function salvarProduto() {
   formData.append('estoque', form.value.estoque);
   formData.append('capacidades', form.value.capacidades);
 
-  for (let i = 0; i < arquivosSelecionados.value.length; i++) {
-    formData.append('imagens', arquivosSelecionados.value[i]);
+  
+  if (arquivosSelecionados.value && arquivosSelecionados.value.length > 0) {
+      for (let i = 0; i < arquivosSelecionados.value.length; i++) {
+        formData.append('imagens', arquivosSelecionados.value[i]);
+      }
   }
 
-  // LOG DO FORMDATA (O que realmente está indo para o servidor)
-  console.log('🚀 Enviando FormData:');
-  for (let pair of formData.entries()) {
-      console.log(pair[0] + ': ', pair[1]);
-  }
+ 
+  console.log('🚀 Enviando FormData com', arquivosSelecionados.value.length, 'arquivos.');
 
   try {
+  
+    const config = {
+      headers: {
+        "Content-Type": undefined
+      }
+    };
+
     if (produtoEditando.value) {
-      console.log(`Atualizando produto ID: ${form.value.id}`); // LOG AQUI
-      await api.put(`/admin/produtos/${form.value.id}`, formData);
+      await api.put(`/admin/produtos/${form.value.id}`, formData, config);
       exibirMensagem('Atualizado com sucesso!', 'success');
     } else {
-      console.log('Criando novo produto'); // LOG AQUI
-      await api.post('/admin/produtos', formData);
+      await api.post('/admin/produtos', formData, config);
       exibirMensagem('Criado com sucesso!', 'success');
     }
     
@@ -176,7 +178,7 @@ async function salvarProduto() {
 async function excluirProduto(id) {
   if (!confirm('Excluir este produto?')) return;
   try {
-    console.log('🗑️ Excluindo produto ID:', id); // LOG AQUI
+    console.log('🗑️ Excluindo produto ID:', id); 
     await api.delete(`/admin/produtos/${id}`);
     carregarProdutos();
   } catch (error) {
