@@ -10,6 +10,9 @@ const config = require("./config");
 const { MercadoPagoConfig, Preference } = require("mercadopago");
 const cors = require('cors');
 require("dotenv").config();
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+
 
 const uploadsMainDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsMainDir)) {
@@ -30,9 +33,26 @@ app.use(cors({
         'https://07leonam.github.io'           
     ],
     credentials: true, 
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Adicionado OPTIONS
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'loja-virtual', 
+        allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+        
+    },
+});
+
+const upload = multer({ storage: storage });
 
 //app.options('*', cors());
 
@@ -166,76 +186,39 @@ app.get("/api/status", authenticateToken, (req, res) => {
 
 // ----------------------- ROTAS DE PRODUTOS (ADMIN) -----------------------
 const uploadMultiple = upload.array("imagens", 6); 
-app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, uploadMultiple, async (req, res) => {
-    console.log("📥 Iniciando criação de produto...");
-    
-    console.log("📦 Body recebido:", req.body);
-    console.log("📂 Arquivos recebidos (req.files):", req.files ? req.files.length : 0);
-
+app.post("/api/admin/produtos", authenticateToken, authorizeAdmin, upload.array("imagens", 6), async (req, res) => {
     const { nome, descricao, preco, estoque, capacidades } = req.body;
     const files = req.files || [];
-    
-    let connection;
 
     try {
-        
         const [result] = await pool.execute(
             "INSERT INTO produtos (nome, descricao, preco, estoque, capacidades) VALUES (?, ?, ?, ?, ?)",
             [nome, descricao, preco, estoque, capacidades]
         );
-        
         const produtoId = result.insertId;
-        console.log(`✅ Produto criado com ID: ${produtoId}`);
-
-        const finalDir = path.join(__dirname, "uploads", String(produtoId));
-        if (!fs.existsSync(finalDir)) {
-            fs.mkdirSync(finalDir, { recursive: true });
-        }
 
         if (files.length > 0) {
-            console.log(`🔄 Processando ${files.length} imagens...`);
-
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                const oldPath = file.path;
-                const newPath = path.join(finalDir, file.filename);
-                const dbPath = `${produtoId}/${file.filename}`; 
-                console.log(`➡️ Movendo imagem ${i+1}: de [${oldPath}] para [${newPath}]`);
-                try {
-                    fs.renameSync(oldPath, newPath);
-                } catch (moveError) {
-                    console.warn(`⚠️ Falha ao mover com rename, tentando copy+unlink: ${moveError.message}`);
-                    fs.copyFileSync(oldPath, newPath);
-                    fs.unlinkSync(oldPath);
-                }
-
                 await pool.execute(
                     "INSERT INTO produto_imagens (produto_id, caminho, ordem) VALUES (?, ?, ?)",
-                    [produtoId, dbPath, i + 1]
+                    [produtoId, file.path, i + 1]
                 );
-                console.log(`💾 Imagem ${i+1} salva no banco: ${dbPath}`);
             }
-        } else {
-            console.warn("⚠️ Nenhuma imagem recebida no req.files!");
         }
 
-        res.status(201).json({ message: "Produto salvo com sucesso!", id: produtoId });
+        res.status(201).json({ message: "Produto criado com imagens na nuvem!" });
 
     } catch (error) {
-        console.error("❌ Erro CRÍTICO ao salvar produto:", error);
-        res.status(500).json({ 
-            message: "Erro ao salvar produto.", 
-            error: error.message 
-        });
+        console.error("Erro ao salvar produto:", error);
+        res.status(500).json({ message: "Erro ao salvar produto." });
     }
 });
 
-// ROTA PUT: Atualizar Produto
-app.put("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, uploadMultiple, async (req, res) => {
+app.put("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, upload.array("imagens", 6), async (req, res) => {
     const { id } = req.params;
     const { nome, descricao, preco, estoque, capacidades } = req.body;
     const files = req.files || [];
-    const finalDir = path.join(__dirname, "uploads", id);
 
     try {
         await pool.execute(
@@ -243,19 +226,18 @@ app.put("/api/admin/produtos/:id", authenticateToken, authorizeAdmin, uploadMult
             [nome, descricao, preco, estoque, capacidades, id]
         );
 
+        // Se enviou novas imagens, adiciona ao banco
         if (files.length > 0) {
-             if (!fs.existsSync(finalDir)) fs.mkdirSync(finalDir, { recursive: true });
+            // Descobre qual a última ordem para adicionar depois
+            const [rows] = await pool.execute("SELECT MAX(ordem) as maxOrdem FROM produto_imagens WHERE produto_id = ?", [id]);
+            let proximaOrdem = (rows[0].maxOrdem || 0) + 1;
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const oldPath = file.path; 
-                const dbPath = path.join(id, file.filename);
-                const newPath = path.join(finalDir, file.filename);
-                fs.renameSync(oldPath, newPath);
+            for (const file of files) {
                 await pool.execute(
                     "INSERT INTO produto_imagens (produto_id, caminho, ordem) VALUES (?, ?, ?)",
-                    [id, dbPath, i + 1] 
+                    [id, file.path, proximaOrdem]
                 );
+                proximaOrdem++;
             }
         }
         res.send("Produto atualizado com sucesso!");

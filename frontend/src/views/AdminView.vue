@@ -214,10 +214,14 @@ function exibirMensagem(texto, tipo) {
 
 function getUrlImagem(imgInput) {
   if (!imgInput) return '';
-  const caminho = imgInput.caminho || imgInput;
-  if (!caminho.startsWith('http')) {
-     return `https://lvtech-backend.onrender.com/uploads/${caminho.replace(/\\/g, '/')}`;
+
+  let caminho = imgInput.caminho || imgInput;
+  if (typeof caminho === 'object') return '';
+
+  if (caminho.startsWith('http')) {
+      return caminho;
   }
-  return caminho;
+  const caminhoLimpo = caminho.replace(/^\\+|^\/+/, '').replace(/\\/g, '/');
+  return `https://lvtech-backend.onrender.com/uploads/${caminhoLimpo}`;
 }
 </script>
