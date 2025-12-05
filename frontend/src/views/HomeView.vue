@@ -41,40 +41,46 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
-import { useRouter } from 'vue-router'; // Importamos o router no script
+import { useRouter } from 'vue-router'; 
+import api from '@/services/api'; 
 
-// Configurações
 const produtos = ref([]);
 const loading = ref(true);
 const erro = ref(null);
-const API_URL = 'https://lvtech-backend.onrender.com'; 
-const router = useRouter(); // Instância do router
+
+const router = useRouter(); 
 
 onMounted(async () => {
-  try {
-    const response = await axios.get(`${API_URL}/api/produtos`);
-    produtos.value = response.data;
-  } catch (err) {
-    console.error(err);
-    erro.value = "Erro ao carregar produtos. Verifique se o backend está rodando.";
-  } finally {
-    loading.value = false;
-  }
+ try {
+ 
+ const response = await api.get('/produtos'); 
+ produtos.value = response.data;
+ } catch (err) {
+ console.error(err);
+ erro.value = "Erro ao carregar produtos. Verifique se o backend está rodando."; } finally {
+ loading.value = false;
+ }
 });
 
 function getProductImage(imagem) {
-  if (!imagem) return 'https://via.placeholder.com/150';
-  const caminhoLimpo = imagem.replace(/\\/g, '/');
-  return `${API_URL}/uploads/${caminhoLimpo}`;
+ if (!imagem) return 'https://via.placeholder.com/150';
+
+if (imagem.startsWith('http') || imagem.startsWith('https')) {
+return imagem;
+ }
+
+
+const caminhoLimpo = imagem.replace(/\\/g, '/');
+
+  return imagem;
 }
 
 function formatarPreco(preco) {
-  return parseFloat(preco).toFixed(2);
+ return parseFloat(preco).toFixed(2);
 }
 
-// Função limpa para navegar
 function irParaDetalhes(id) {
-  router.push(`/produto/${id}`);
+ router.push(`/produto/${id}`);
 }
 </script>
 
