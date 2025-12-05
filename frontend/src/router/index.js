@@ -6,7 +6,7 @@ import CartView from '../views/CartView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import ProductView from '../views/ProductView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
-import MeusPedidos from '..MeusPedidosView.vue';
+import MeusPedidosView from '../views/MeusPedidosView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -51,8 +51,8 @@ const router = createRouter({
     },
     {
       path: '/meus-pedidos',
-      name: 'MeusPedidos',
-      component: MeusPedidos,
+      name: 'MeusPedidos', 
+      component: MeusPedidosView, 
       meta: { requiresAuth: true } 
     }
   ]
