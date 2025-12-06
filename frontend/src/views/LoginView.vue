@@ -44,6 +44,9 @@ async function fazerLogin() {
   loading.value = true;
   erro.value = '';
 
+
+  const REPO_BASE = '/lvtech_ecommerce';
+
   try {
     const response = await api.post('/login', {
       email: email.value,
@@ -53,15 +56,19 @@ async function fazerLogin() {
     if (response.status === 200) {
       const usuario = response.data.user;
 
+
       authStore.setUser(usuario);
 
       if (usuario.tipo === 'admin') {
-        window.location.href = '/admin';
+
+        window.location.href = window.location.origin + REPO_BASE + '/admin';
       } else {
-        window.location.href = '/';
+
+        window.location.href = window.location.origin + REPO_BASE + '/';
       }
     }
   } catch (err) {
+
   } finally {
     loading.value = false;
   }
