@@ -53,14 +53,12 @@ async function fazerLogin() {
     if (response.status === 200) {
       const usuario = response.data.user;
 
-
       authStore.setUser(usuario);
 
       if (usuario.tipo === 'admin') {
-        router.push('/admin');
+        window.location.href = '/admin';
       } else {
-
-        router.push('/');
+        window.location.href = '/';
       }
     }
   } catch (err) {
