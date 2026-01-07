@@ -626,13 +626,36 @@ app.post("/api/register", async (req, res) => {
 
 // ROTA GET: Histórico de Pedidos
 app.get("/api/meus-pedidos", authenticateToken, async (req, res) => {
-    const emailUsuario = req.user.email; 
+    const emailUsuario = req.user.email;
 
     try {
-        const [pedidos] = await pool.execute(
-            "SELECT * FROM pedidos WHERE email_cliente = ? ORDER BY data_pedido DESC",
-            [emailUsuario]
-        );
+        const [pedidos] = await pool.execute(`
+            SELECT 
+                p.id,
+                p.usuario_id,
+                p.nome_cliente,
+                p.email_cliente,
+                p.endereco_entrega,
+                p.forma_pagamento,
+                p.status_pagamento,
+                p.data_pedido,
+                COALESCE(SUM(pi.quantidade * pi.preco_unitario), 0) AS valor_total
+            FROM pedidos p
+            LEFT JOIN pedido_itens pi ON pi.pedido_id = p.id
+            WHERE p.email_cliente = ?
+            GROUP BY 
+                p.id,
+                p.usuario_id,
+                p.nome_cliente,
+                p.email_cliente,
+                p.endereco_entrega,
+                p.forma_pagamento,
+                p.status_pagamento,
+                p.data_pedido
+            ORDER BY p.data_pedido DESC
+        `, [emailUsuario]);
+
+        console.log("📦 RESPOSTA DA API /meus-pedidos:", pedidos);
 
         res.json(pedidos);
     } catch (error) {
@@ -640,6 +663,8 @@ app.get("/api/meus-pedidos", authenticateToken, async (req, res) => {
         res.status(500).send("Erro ao buscar histórico.");
     }
 });
+
+
 
 // ----------------------- SERVIR ARQUIVOS -----------------------
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

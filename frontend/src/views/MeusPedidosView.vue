@@ -43,9 +43,6 @@
           </p>
         </div>
         
-        <button class="btn-secondary btn-ver-detalhes">
-            Ver Detalhes do Pedido
-        </button>
       </div>
     </div>
   </div>
@@ -62,10 +59,7 @@ const erro = ref(null);
 onMounted(async () => {
   try {
     const response = await api.get('/meus-pedidos');
-    pedidos.value = response.data.map(pedido => ({
-      ...pedido,
-      valor_total: 1000.00 
-    }));
+    pedidos.value = response.data;
   } catch (err) {
     console.error("Erro ao carregar pedidos:", err);
     erro.value = "Não foi possível carregar seu histórico de pedidos. Tente fazer login novamente.";
